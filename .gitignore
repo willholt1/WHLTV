@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+
+# ASP.NET
+bin/
+obj/
+*.user
+*.suo
+
+# Node
+node_modules/
+dist/
+.env.local
+
+# Docker
+*.log
+*.pid
+*.sock
+*.db
+.env
+docker-compose.override.yml
+
+# Visual Studio Code
+.vscode/
