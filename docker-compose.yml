@@ -11,14 +11,5 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  ranking-inserter:
-    build:
-      context: ./HLTVScraper
-    env_file:
-      - .env
-    depends_on:
-      - db
-    command: python scrapeTeamRankings.py
-
 volumes:
   pgdata:

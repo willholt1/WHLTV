@@ -22,15 +22,14 @@ DB_PARAMS = {
 
 
 
-def fetch_ranking_page():
+def fetch_ranking_page(url):
     options = uc.ChromeOptions()
-    options.add_argument("--headless")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-gpu")
 
     driver = uc.Chrome(options=options)
 
-    driver.get("https://www.hltv.org/ranking/teams")
+    driver.get(url)
 
     from selenium.common.exceptions import NoSuchElementException
 
@@ -73,11 +72,23 @@ def parse_rankings(soup):
             points_text = team_div.select_one('.points').text
             points = int(''.join(filter(str.isdigit, points_text)))
 
-            teams.append((name, rank, points))
+            teams.append((name, points, rank))
         except Exception as e:
             print(f"Skipping team due to parse error: {e}")
             continue
     return teams
+
+def join_team_rankings(hltv_teams, valve_teams):
+   
+    valve_dict = {name: (points, rank) for (name, points, rank) in valve_teams}
+
+    combined = []
+    for name, hltv_points, hltv_rank in hltv_teams:
+        if name in valve_dict:
+            valve_points, valve_rank = valve_dict[name]
+            combined.append((name, hltv_points, hltv_rank, valve_points, valve_rank))
+
+    return combined
 
 
 def update_database(teams):
@@ -85,10 +96,10 @@ def update_database(teams):
     conn = psycopg2.connect(**DB_PARAMS)
     cur = conn.cursor()
 
-    for name, rank, points in teams:
+    for name, hltv_points, hltv_rank, valve_points, valve_rank in teams:
         cur.execute("""
             CALL dbo.InsertTeamRanking(%s, %s, %s, %s, %s, %s)
-        """, (name, points, rank, None, None, None))
+        """, (name, hltv_points, hltv_rank, valve_points, valve_rank, None))
 
     conn.commit()
     cur.close()
@@ -96,12 +107,18 @@ def update_database(teams):
 
 if __name__ == "__main__":
     print("Loading HLTV rankings with Selenium...")
-    soup = fetch_ranking_page()
+    hltvSoup = fetch_ranking_page("https://www.hltv.org/ranking/teams")
+
+    print("Loading Valve rankings with Selenium...")
+    valveSoup = fetch_ranking_page("https://www.hltv.org/valve-ranking/teams")
 
     print("Parsing rankings...")
-    teams = parse_rankings(soup)
+    hltvTeams = parse_rankings(hltvSoup)
+    valveTeams = parse_rankings(valveSoup)
 
-    print(f"Inserting {len(teams)} teams into the database...")
-    update_database(teams)
+    combinedRanking = join_team_rankings(hltvTeams, valveTeams)
+
+    print(f"Inserting {len(combinedRanking)} teams into the database...")
+    update_database(combinedRanking)
 
     print("Done.")
