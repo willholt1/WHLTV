@@ -98,7 +98,7 @@ def update_database(teams):
 
     for name, hltv_points, hltv_rank, valve_points, valve_rank in teams:
         cur.execute("""
-            CALL dbo.InsertTeamRanking(%s, %s, %s, %s, %s, %s)
+            CALL dbo.usp_InsertTeamRanking(%s, %s, %s, %s, %s, %s)
         """, (name, hltv_points, hltv_rank, valve_points, valve_rank, None))
 
     conn.commit()
