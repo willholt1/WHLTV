@@ -6,16 +6,16 @@ import time
 
 def rankings():
     # Start date of first cs2 event - IEM sydney 2023. NOTE: HLTV only have historic pages for monday dates
-    start_date = datetime(2023, 10, 16) 
-    end_date = datetime.today()
+    startDate = datetime(2023, 10, 16) 
+    endDate = datetime.today()
 
     # Generate list of dates in 7-day increments
     dates = []
-    current_date = start_date
-    while current_date <= end_date:
-        new_date = {"date": current_date, "day": current_date.day, "month": current_date.strftime("%B").lower(), "year": current_date.year}
+    currentDate = startDate
+    while currentDate <= endDate:
+        new_date = {"date": currentDate, "day": currentDate.day, "month": currentDate.strftime("%B").lower(), "year": currentDate.year}
         dates.append(new_date)
-        current_date += timedelta(days=7)
+        currentDate += timedelta(days=7)
 
     for date in dates:
         print(f"Pulling data for {date['date']}")
@@ -54,7 +54,33 @@ def rankings():
     print("Done.")
 
 def events():
-    print("TODO: Pull historic event data")
+
+    stopDate = datetime(2023, 10, 16)
+    loop = True
+    i = 0
+    while loop:
+        print("Loading HLTV events with Selenium...")
+        print(f"Offset: {i}")
+        
+        if i == 0:
+            hltvSoup = se.fetch_ranking_page(f"https://www.hltv.org/events/archive")
+        elif i > 0:
+            hltvSoup = se.fetch_ranking_page(f"https://www.hltv.org/events/archive?offset={i}")
+
+        print("Parsing events...")
+        events = se.parse_rankings(hltvSoup)
+
+        print(f"Inserting {len(events)} teams into the database...")
+        se.update_database(events)
+
+        print("Checking event dates...")
+        # Index 2 refers to start date of the event
+        if any(row[2] is not None and row[2].replace(tzinfo=None) < stopDate.replace(tzinfo=None) for row in events):
+            loop = False
+
+        i += 50
+
+    print("Done.")
 
 def main():
     parser = argparse.ArgumentParser(description="A script that pulls historic HLTV ranking/event data")
