@@ -91,15 +91,15 @@ def join_team_rankings(hltv_teams, valve_teams):
     return combined
 
 
-def update_database(teams):
+def update_database(teams, date = None):
 
     conn = psycopg2.connect(**DB_PARAMS)
     cur = conn.cursor()
 
     for name, hltv_points, hltv_rank, valve_points, valve_rank in teams:
         cur.execute("""
-            CALL dbo.usp_InsertTeamRanking(%s, %s, %s, %s, %s, %s)
-        """, (name, hltv_points, hltv_rank, valve_points, valve_rank, None))
+            CALL dbo."usp_InsertTeamRanking"(%s, %s, %s, %s, %s, %s)
+        """, (name, hltv_points, hltv_rank, valve_points, valve_rank, date))
 
     conn.commit()
     cur.close()
