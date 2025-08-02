@@ -1,10 +1,30 @@
 import argparse
-import scrapeEvents as se
-import scrapeTeamRankings as sr
 from datetime import datetime, timedelta
 import time
+import fetchPage as fp
+import parseHTML as ph
+import dbAccess as db
+import utility as u
 
-def rankings():
+def scrapeCurrentRankings():
+    print("Loading HLTV rankings with Selenium...")
+    hltvSoup = fp.fetchPage("https://www.hltv.org/ranking/teams", "ranked-team")
+
+    print("Loading Valve rankings with Selenium...")
+    valveSoup = fp.fetchPage("https://www.hltv.org/valve-ranking/teams", "ranked-team")
+
+    print("Parsing rankings...")
+    hltvTeams = ph.parse_Rankings(hltvSoup)
+    valveTeams = ph.parse_Rankings(valveSoup)
+
+    combinedRanking = u.util_JoinTeamRankings(hltvTeams, valveTeams)
+
+    print(f"Inserting {len(combinedRanking)} teams into the database...")
+    db.insertTeamRankings(combinedRanking)
+
+    print("Done.")
+
+def scrapeHistoricRankings():
     # Start date of first cs2 event - IEM sydney 2023. NOTE: HLTV only have historic pages for monday dates
     startDate = datetime(2023, 10, 16) 
     endDate = datetime.today()
@@ -27,17 +47,17 @@ def rankings():
             skipValve = False
 
         print("Loading HLTV rankings with Selenium...")
-        hltvSoup = sr.fetch_ranking_page(f"https://www.hltv.org/ranking/teams/{date['year']}/{date['month']}/{date['day']}")
+        hltvSoup = fp.fetchPage(f"https://www.hltv.org/ranking/teams/{date['year']}/{date['month']}/{date['day']}", "ranked-team")
         
         print("Parsing HLTV rankings...")
-        hltvTeams = sr.parse_rankings(hltvSoup)
+        hltvTeams = ph.parse_Rankings(hltvSoup)
 
         if not skipValve:
             print("Loading Valve rankings with Selenium...")
-            valveSoup = sr.fetch_ranking_page(f"https://www.hltv.org/valve-ranking/teams/{date['year']}/{date['month']}/{date['day']}")
+            valveSoup = fp.fetchPage(f"https://www.hltv.org/valve-ranking/teams/{date['year']}/{date['month']}/{date['day']}", "ranked-team")
             print("Parsing Valve rankings...")
-            valveTeams = sr.parse_rankings(valveSoup)
-            combinedRanking = sr.join_team_rankings(hltvTeams, valveTeams)
+            valveTeams = ph.parse_Rankings(valveSoup)
+            combinedRanking = u.util_JoinTeamRankings(hltvTeams, valveTeams)
         else:
             print(f"Skipping Valve rankings for {date['date']}...")
 
@@ -47,13 +67,25 @@ def rankings():
         
 
         print(f"Inserting {len(combinedRanking)} teams into the database for date {date['date']}...")
-        sr.update_database(combinedRanking, date['date'])
+        db.insertTeamRankings(combinedRanking, date['date'])
 
         time.sleep(20)
 
     print("Done.")
 
-def events():
+def scrapeRecentEvents():
+    print("Loading HLTV events with Selenium...")
+    hltvSoup = fp.fetchPage("https://www.hltv.org/events/archive", "small-event")
+
+    print("Parsing events...")
+    events = ph.parse_EventArchive(hltvSoup)
+
+    print(f"Inserting {len(events)} teams into the database...")
+    db.insertEvents(events)
+
+    print("Done.")
+
+def scrapeHistoricEvents():
 
     stopDate = datetime(2023, 10, 16)
     loop = True
@@ -63,15 +95,15 @@ def events():
         print(f"Offset: {i}")
         
         if i == 0:
-            hltvSoup = se.fetch_ranking_page(f"https://www.hltv.org/events/archive")
+            hltvSoup = fp.fetchPage("https://www.hltv.org/events/archive", "small-event")
         elif i > 0:
-            hltvSoup = se.fetch_ranking_page(f"https://www.hltv.org/events/archive?offset={i}")
+            hltvSoup = fp.fetchPage(f"https://www.hltv.org/events/archive?offset={i}", "small-event")
 
         print("Parsing events...")
-        events = se.parse_rankings(hltvSoup)
+        events = ph.parse_EventArchive(hltvSoup)
 
         print(f"Inserting {len(events)} teams into the database...")
-        se.update_database(events)
+        db.insertEvents(events)
 
         print("Checking event dates...")
         # Index 2 refers to start date of the event
@@ -84,13 +116,17 @@ def events():
 
 def main():
     parser = argparse.ArgumentParser(description="A script that pulls historic HLTV ranking/event data")
-    parser.add_argument("case", choices=["1", "2"], help="Choose 1 for Rankings or 2 for Events")
+    parser.add_argument("case", choices=["1", "2", "3", "4"], help="Choose 1/2 for Rankings (current/historic) or 3/4 for Events (recent/historic)")
     args = parser.parse_args()
 
     if args.case == "1":
-        rankings()
+        scrapeCurrentRankings()
     elif args.case == "2":
-        events()
+        scrapeHistoricRankings()
+    elif args.case == "3":
+        scrapeRecentEvents()
+    elif args.case == "4":
+        scrapeHistoricEvents()
 
 if __name__ == "__main__":
     main()
