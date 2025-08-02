@@ -26,6 +26,40 @@ CREATE SCHEMA dbo;
 ALTER SCHEMA dbo OWNER TO whltv;
 
 --
+-- Name: udf_gethighvalueevents(); Type: FUNCTION; Schema: dbo; Owner: whltv
+--
+
+CREATE FUNCTION dbo.udf_gethighvalueevents() RETURNS TABLE(eventid integer, hltvurl text)
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+    RETURN QUERY
+    WITH e AS (
+        SELECT t.eventid, t.hltvurl, t.startdate
+        FROM dbo.tblevents t
+        WHERE t.prizepool LIKE '%$%'
+          AND LENGTH(t.prizepool) >= 8
+
+        UNION
+
+        SELECT t2.eventid, t2.hltvurl, t2.startdate
+        FROM dbo.tblevents t2
+        WHERE t2.EventName LIKE '%BLAST%'
+           OR (t2.EventName LIKE '%IEM%' AND t2.eventname NOT LIKE '%Qualifier%')
+           OR (t2.EventName LIKE '%Major%' AND t2.eventname NOT LIKE '%Open Qualifier%')
+           OR (t2.EventName LIKE '%ESL Pro League%' AND t2.eventname NOT LIKE '%Qualifier%')
+    )
+    SELECT e.eventid, e.hltvurl
+    FROM e
+    WHERE NOT EXISTS(select 1 from dbo.tbleventteams et where et.eventid = e.eventid)
+    ORDER BY e.startdate DESC;
+END;
+$_$;
+
+
+ALTER FUNCTION dbo.udf_gethighvalueevents() OWNER TO whltv;
+
+--
 -- Name: usp_InsertTeamRanking(text, integer, integer, integer, integer, timestamp without time zone); Type: PROCEDURE; Schema: dbo; Owner: whltv
 --
 
@@ -102,6 +136,48 @@ $$;
 
 
 ALTER PROCEDURE dbo.usp_insertevent(IN p_eventname text, IN p_prizepool text, IN p_startdate timestamp with time zone, IN p_enddate timestamp with time zone, IN p_eventtypename text, IN p_locationname text, IN p_hltvurl text) OWNER TO whltv;
+
+--
+-- Name: usp_inserteventteams(integer, text[]); Type: PROCEDURE; Schema: dbo; Owner: whltv
+--
+
+CREATE PROCEDURE dbo.usp_inserteventteams(IN p_eventid integer, IN p_teams text[])
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_teamname TEXT;
+    v_teamid INT;
+BEGIN
+    FOREACH v_teamname IN ARRAY p_teams
+    LOOP
+        -- Get or insert the team
+        SELECT teamid
+        INTO v_teamid
+        FROM tblTeams
+        WHERE lower(teamname) = lower(v_teamname)
+        LIMIT 1;
+
+        IF v_teamid IS NULL THEN
+            INSERT INTO tblTeams (teamname)
+            VALUES (v_teamname)
+            RETURNING teamid INTO v_teamid;
+        END IF;
+
+        -- Insert linking record
+        INSERT INTO tblEventTeams (eventid, teamid)
+        SELECT p_eventid, v_teamid
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM tblEventTeams et
+            WHERE et.eventid = p_eventid
+              AND et.teamid = v_teamid
+        );
+    END LOOP;
+END;
+$$;
+
+
+ALTER PROCEDURE dbo.usp_inserteventteams(IN p_eventid integer, IN p_teams text[]) OWNER TO whltv;
 
 SET default_tablespace = '';
 
@@ -185,6 +261,41 @@ ALTER SEQUENCE dbo.tblevents_eventid_seq OWNER TO whltv;
 --
 
 ALTER SEQUENCE dbo.tblevents_eventid_seq OWNED BY dbo.tblevents.eventid;
+
+
+--
+-- Name: tbleventteams; Type: TABLE; Schema: dbo; Owner: whltv
+--
+
+CREATE TABLE dbo.tbleventteams (
+    eventteamid integer NOT NULL,
+    eventid integer NOT NULL,
+    teamid integer NOT NULL
+);
+
+
+ALTER TABLE dbo.tbleventteams OWNER TO whltv;
+
+--
+-- Name: tbleventteams_eventteamid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+--
+
+CREATE SEQUENCE dbo.tbleventteams_eventteamid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE dbo.tbleventteams_eventteamid_seq OWNER TO whltv;
+
+--
+-- Name: tbleventteams_eventteamid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+--
+
+ALTER SEQUENCE dbo.tbleventteams_eventteamid_seq OWNED BY dbo.tbleventteams.eventteamid;
 
 
 --
@@ -343,6 +454,13 @@ ALTER TABLE ONLY dbo.tblevents ALTER COLUMN eventid SET DEFAULT nextval('dbo.tbl
 
 
 --
+-- Name: tbleventteams eventteamid; Type: DEFAULT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tbleventteams ALTER COLUMN eventteamid SET DEFAULT nextval('dbo.tbleventteams_eventteamid_seq'::regclass);
+
+
+--
 -- Name: tbleventtypes eventtypeid; Type: DEFAULT; Schema: dbo; Owner: whltv
 --
 
@@ -392,6 +510,14 @@ ALTER TABLE ONLY dbo.tblevents
 
 ALTER TABLE ONLY dbo.tblevents
     ADD CONSTRAINT tblevents_pkey PRIMARY KEY (eventid);
+
+
+--
+-- Name: tbleventteams tbleventteams_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tbleventteams
+    ADD CONSTRAINT tbleventteams_pkey PRIMARY KEY (eventteamid);
 
 
 --

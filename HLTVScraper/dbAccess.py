@@ -51,3 +51,41 @@ def insertEvents(events):
     
     cur.close()
     conn.close()
+
+def getHighValueEvents():
+    conn = psycopg2.connect(**DB_PARAMS)
+    cur = conn.cursor()
+    
+    try:
+        cur.execute("SELECT * FROM dbo.udf_gethighvalueevents();")
+        rows = cur.fetchall()
+            
+        events = []
+        for row in rows:
+            event = {"eventid": row[0], "hltvurl": row[1] }
+            events.append(event)
+        
+        return events
+
+    except Exception as e:
+        print(f"Error fetching high-value events: {e}")
+        return []
+    finally:
+        cur.close()
+        conn.close()
+
+
+def insertEventTeams(eventID, teams):
+    conn = psycopg2.connect(**DB_PARAMS)
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "CALL dbo.usp_inserteventteams(%s, %s);",
+            (eventID, teams)
+        )
+    except Exception as e:
+        print(f"Error inserting teams: {e}")
+        return []
+    finally:
+        cur.close()
+        conn.close()

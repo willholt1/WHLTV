@@ -114,9 +114,26 @@ def scrapeHistoricEvents():
 
     print("Done.")
 
+def scrapeAttendingTeams():
+    print("Extracting event list from DB...")
+    events = db.getHighValueEvents()
+
+    for event in events:
+        print("Loading HLTV event page with Selenium...")
+        eventSoup = fp.fetchPage(event["hltvurl"], "team-box")
+
+        print("Parsing teams...")
+        attendingTeams = ph.parse_EventPage_GetAttendingTeams(eventSoup)
+
+        print(f"Inserting {len(attendingTeams)} teams into the DB for eventID {event['eventid']}...")
+        db.insertEventTeams(event["eventid"], attendingTeams)
+        
+    print("Done.")
+
+
 def main():
     parser = argparse.ArgumentParser(description="A script that pulls historic HLTV ranking/event data")
-    parser.add_argument("case", choices=["1", "2", "3", "4"], help="Choose 1/2 for Rankings (current/historic) or 3/4 for Events (recent/historic)")
+    parser.add_argument("case", choices=["1", "2", "3", "4", "5"], help="Choose 1/2 for Rankings (current/historic) \n3/4 for Events (recent/historic)\n5 for teams attending high value events")
     args = parser.parse_args()
 
     if args.case == "1":
@@ -127,6 +144,8 @@ def main():
         scrapeRecentEvents()
     elif args.case == "4":
         scrapeHistoricEvents()
+    elif args.case == "5":
+        scrapeAttendingTeams()
 
 if __name__ == "__main__":
     main()

@@ -47,9 +47,19 @@ def parse_EventArchive(soup):
 
     return events
 
-def parse_EventPage(soup):
-    print("TODO - parse_EventPage")
-    return
+def parse_EventPage_GetAttendingTeams(soup):
+    teams = []
+
+    for team in soup.select(".team-box"):
+        try:
+           name = team.select_one(".team-name .text").get_text(strip=True)
+           teams.append(name)
+
+        except Exception as e:
+            print(f"Skipping team due to error: {e}")
+            continue
+
+    return teams
 
 def parse_Rankings(soup):
     teams = []
