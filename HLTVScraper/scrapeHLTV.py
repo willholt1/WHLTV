@@ -5,6 +5,15 @@ import fetchPage as fp
 import parseHTML as ph
 import dbAccess as db
 import utility as u
+import logging
+
+logging.basicConfig(
+    filename="scraper.log",  # Log file
+    level=logging.INFO,      # Minimum level to log
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+# Suppress webdriver-manager INFO logs
+logging.getLogger("WDM").setLevel(logging.WARNING)
 
 def scrapeCurrentRankings():
     print("Loading HLTV rankings with Selenium...")
@@ -48,13 +57,22 @@ def scrapeHistoricRankings():
 
         print("Loading HLTV rankings with Selenium...")
         hltvSoup = fp.fetchPage(f"https://www.hltv.org/ranking/teams/{date['year']}/{date['month']}/{date['day']}", "ranked-team")
-        
+
+        if hltvSoup is None:
+            print(f"Skipping {date['date']} - HLTV rankings not found.")
+            continue
+
         print("Parsing HLTV rankings...")
         hltvTeams = ph.parse_Rankings(hltvSoup)
 
         if not skipValve:
             print("Loading Valve rankings with Selenium...")
             valveSoup = fp.fetchPage(f"https://www.hltv.org/valve-ranking/teams/{date['year']}/{date['month']}/{date['day']}", "ranked-team")
+            
+            if valveSoup is None:
+                print(f"Skipping {date['date']} - Valve rankings not found.")
+                continue
+            
             print("Parsing Valve rankings...")
             valveTeams = ph.parse_Rankings(valveSoup)
             combinedRanking = u.util_JoinTeamRankings(hltvTeams, valveTeams)
@@ -98,6 +116,10 @@ def scrapeHistoricEvents():
             hltvSoup = fp.fetchPage("https://www.hltv.org/events/archive", "small-event")
         elif i > 0:
             hltvSoup = fp.fetchPage(f"https://www.hltv.org/events/archive?offset={i}", "small-event")
+        
+        if hltvSoup is None:
+            print(f"Skipping offset: {i} due to error")
+            continue
 
         print("Parsing events...")
         events = ph.parse_EventArchive(hltvSoup)
@@ -123,6 +145,10 @@ def scrapeAttendingTeams():
         print(event["hltvurl"])
         
         eventSoup = fp.fetchPage(event["hltvurl"], "team-box")
+
+        if eventSoup is None:
+            print(f"Skipping eventID {event['eventid']} due to error")
+            continue
 
         print("Parsing teams...")
         attendingTeams = ph.parse_EventPage_GetAttendingTeams(eventSoup)

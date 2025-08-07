@@ -5,7 +5,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import time
 import undetected_chromedriver as uc
-
+import logging
 
 def fetchPage(url, className):
     chromedriver_path = ChromeDriverManager().install()
@@ -36,12 +36,11 @@ def fetchPage(url, className):
             EC.presence_of_element_located((By.CLASS_NAME, className))
         )
     except Exception as e:
-        print("Timeout waiting for event elements")
+        logging.warning(f"Class '{className}' not found on {url}: {e}")
         with open("debug_hltv.html", "w", encoding="utf-8") as f:
             f.write(driver.page_source)
         driver.quit()
-        raise
-
+        return None
 
     html = driver.page_source
     driver.quit()
