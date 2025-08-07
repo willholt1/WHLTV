@@ -120,12 +120,15 @@ def scrapeAttendingTeams():
 
     for event in events:
         print("Loading HLTV event page with Selenium...")
+        print(event["hltvurl"])
+        
         eventSoup = fp.fetchPage(event["hltvurl"], "team-box")
 
         print("Parsing teams...")
         attendingTeams = ph.parse_EventPage_GetAttendingTeams(eventSoup)
 
         print(f"Inserting {len(attendingTeams)} teams into the DB for eventID {event['eventid']}...")
+        print(attendingTeams)
         db.insertEventTeams(event["eventid"], attendingTeams)
         
     print("Done.")

@@ -2,15 +2,19 @@ from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 import time
 import undetected_chromedriver as uc
 
+
 def fetchPage(url, className):
+    chromedriver_path = ChromeDriverManager().install()
+
     options = uc.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-gpu")
 
-    driver = uc.Chrome(options=options)
+    driver = uc.Chrome(driver_executable_path=chromedriver_path, options=options)
 
     driver.get(url)
 

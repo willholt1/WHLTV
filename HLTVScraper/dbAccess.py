@@ -83,6 +83,7 @@ def insertEventTeams(eventID, teams):
             "CALL dbo.usp_inserteventteams(%s, %s);",
             (eventID, teams)
         )
+        conn.commit()
     except Exception as e:
         print(f"Error inserting teams: {e}")
         return []
