@@ -143,41 +143,77 @@ ALTER PROCEDURE dbo.usp_insertevent(IN p_eventname text, IN p_prizepool text, IN
 
 CREATE PROCEDURE dbo.usp_inserteventteams(IN p_eventid integer, IN p_teams text[])
     LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_teamname TEXT;
-    v_teamid INT;
-BEGIN
-    FOREACH v_teamname IN ARRAY p_teams
-    LOOP
-        -- Get or insert the team
-        SELECT teamid
-        INTO v_teamid
-        FROM tblTeams
-        WHERE lower(teamname) = lower(v_teamname)
-        LIMIT 1;
-
-        IF v_teamid IS NULL THEN
-            INSERT INTO tblTeams (teamname)
-            VALUES (v_teamname)
-            RETURNING teamid INTO v_teamid;
-        END IF;
-
-        -- Insert linking record
-        INSERT INTO tblEventTeams (eventid, teamid)
-        SELECT p_eventid, v_teamid
-        WHERE NOT EXISTS (
-            SELECT 1
-            FROM tblEventTeams et
-            WHERE et.eventid = p_eventid
-              AND et.teamid = v_teamid
-        );
-    END LOOP;
-END;
+    AS $$
+DECLARE
+    v_teamname TEXT;
+    v_teamid INT;
+BEGIN
+
+    FOREACH v_teamname IN ARRAY p_teams
+    LOOP
+        RAISE NOTICE 'inserting team % into event %', v_teamname, p_eventid;
+        -- Get or insert the team
+        SELECT teamid
+        INTO v_teamid
+        FROM tblTeams
+        WHERE lower(teamname) = lower(v_teamname)
+        LIMIT 1;
+
+        IF v_teamid IS NULL THEN
+            INSERT INTO tblTeams (teamname)
+            VALUES (v_teamname)
+            RETURNING teamid INTO v_teamid;
+        END IF;
+
+        -- Insert linking record
+        INSERT INTO tblEventTeams (eventid, teamid)
+        SELECT p_eventid, v_teamid
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM tblEventTeams et
+            WHERE et.eventid = p_eventid
+              AND et.teamid = v_teamid
+        );
+    END LOOP;
+END;
 $$;
 
 
 ALTER PROCEDURE dbo.usp_inserteventteams(IN p_eventid integer, IN p_teams text[]) OWNER TO whltv;
+
+--
+-- Name: usp_markeventsfordownload(); Type: PROCEDURE; Schema: dbo; Owner: whltv
+--
+
+CREATE PROCEDURE dbo.usp_markeventsfordownload()
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+
+    UPDATE dbo.tblevents te
+    SET downloadevent = true
+    WHERE EXISTS (
+        SELECT 1
+        FROM dbo.tbleventteams et
+        WHERE et.eventid = te.eventid
+          AND (
+                SELECT tr.hltvrank
+                FROM dbo.tblteamrankings tr
+                WHERE tr.teamid = et.teamid
+                  AND tr.rankingdate <= te.startdate
+                ORDER BY tr.rankingdate DESC
+                LIMIT 1
+              ) <= 10
+    )
+    AND te.downloadevent IS DISTINCT FROM true;
+    
+    RAISE NOTICE 'Marked % events for download', FOUND;
+
+END;
+$$;
+
+
+ALTER PROCEDURE dbo.usp_markeventsfordownload() OWNER TO whltv;
 
 SET default_tablespace = '';
 
@@ -235,7 +271,8 @@ CREATE TABLE dbo.tblevents (
     enddate timestamp with time zone,
     eventtypeid integer,
     locationid integer,
-    hltvurl text
+    hltvurl text,
+    downloadevent boolean
 );
 
 
