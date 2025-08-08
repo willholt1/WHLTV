@@ -220,46 +220,6 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- Name: tbldemofiles; Type: TABLE; Schema: dbo; Owner: whltv
---
-
-CREATE TABLE dbo.tbldemofiles (
-    demofileid integer NOT NULL,
-    demourl text NOT NULL,
-    downloaded boolean DEFAULT false,
-    filepath text,
-    downloadattempts integer DEFAULT 0,
-    createdat timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    updatedat timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    matchid integer NOT NULL
-);
-
-
-ALTER TABLE dbo.tbldemofiles OWNER TO whltv;
-
---
--- Name: tbldemofiles_demofileid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
---
-
-CREATE SEQUENCE dbo.tbldemofiles_demofileid_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE dbo.tbldemofiles_demofileid_seq OWNER TO whltv;
-
---
--- Name: tbldemofiles_demofileid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
---
-
-ALTER SEQUENCE dbo.tbldemofiles_demofileid_seq OWNED BY dbo.tbldemofiles.demofileid;
-
-
---
 -- Name: tblevents; Type: TABLE; Schema: dbo; Owner: whltv
 --
 
@@ -404,6 +364,117 @@ ALTER SEQUENCE dbo.tbllocations_locationid_seq OWNED BY dbo.tbllocations.locatio
 
 
 --
+-- Name: tblmaps; Type: TABLE; Schema: dbo; Owner: whltv
+--
+
+CREATE TABLE dbo.tblmaps (
+    mapid integer NOT NULL,
+    mapname text
+);
+
+
+ALTER TABLE dbo.tblmaps OWNER TO whltv;
+
+--
+-- Name: tblmaps_mapid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+--
+
+CREATE SEQUENCE dbo.tblmaps_mapid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE dbo.tblmaps_mapid_seq OWNER TO whltv;
+
+--
+-- Name: tblmaps_mapid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+--
+
+ALTER SEQUENCE dbo.tblmaps_mapid_seq OWNED BY dbo.tblmaps.mapid;
+
+
+--
+-- Name: tblmatches; Type: TABLE; Schema: dbo; Owner: whltv
+--
+
+CREATE TABLE dbo.tblmatches (
+    matchid integer NOT NULL,
+    eventid integer,
+    team1id integer,
+    team2id integer,
+    bestof integer,
+    matchdate timestamp without time zone,
+    hltvmatchpageurl text
+);
+
+
+ALTER TABLE dbo.tblmatches OWNER TO whltv;
+
+--
+-- Name: tblmatches_matchid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+--
+
+CREATE SEQUENCE dbo.tblmatches_matchid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE dbo.tblmatches_matchid_seq OWNER TO whltv;
+
+--
+-- Name: tblmatches_matchid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+--
+
+ALTER SEQUENCE dbo.tblmatches_matchid_seq OWNED BY dbo.tblmatches.matchid;
+
+
+--
+-- Name: tblmatchmaps; Type: TABLE; Schema: dbo; Owner: whltv
+--
+
+CREATE TABLE dbo.tblmatchmaps (
+    matchmapid integer NOT NULL,
+    matchid integer,
+    mapid integer,
+    team1score integer,
+    team2score integer,
+    demoid integer
+);
+
+
+ALTER TABLE dbo.tblmatchmaps OWNER TO whltv;
+
+--
+-- Name: tblmatchmaps_matchmapid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+--
+
+CREATE SEQUENCE dbo.tblmatchmaps_matchmapid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE dbo.tblmatchmaps_matchmapid_seq OWNER TO whltv;
+
+--
+-- Name: tblmatchmaps_matchmapid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+--
+
+ALTER SEQUENCE dbo.tblmatchmaps_matchmapid_seq OWNED BY dbo.tblmatchmaps.matchmapid;
+
+
+--
 -- Name: tblteamrankings; Type: TABLE; Schema: dbo; Owner: whltv
 --
 
@@ -477,13 +548,6 @@ ALTER SEQUENCE dbo.tblteams_teamid_seq OWNED BY dbo.tblteams.teamid;
 
 
 --
--- Name: tbldemofiles demofileid; Type: DEFAULT; Schema: dbo; Owner: whltv
---
-
-ALTER TABLE ONLY dbo.tbldemofiles ALTER COLUMN demofileid SET DEFAULT nextval('dbo.tbldemofiles_demofileid_seq'::regclass);
-
-
---
 -- Name: tblevents eventid; Type: DEFAULT; Schema: dbo; Owner: whltv
 --
 
@@ -512,6 +576,27 @@ ALTER TABLE ONLY dbo.tbllocations ALTER COLUMN locationid SET DEFAULT nextval('d
 
 
 --
+-- Name: tblmaps mapid; Type: DEFAULT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblmaps ALTER COLUMN mapid SET DEFAULT nextval('dbo.tblmaps_mapid_seq'::regclass);
+
+
+--
+-- Name: tblmatches matchid; Type: DEFAULT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblmatches ALTER COLUMN matchid SET DEFAULT nextval('dbo.tblmatches_matchid_seq'::regclass);
+
+
+--
+-- Name: tblmatchmaps matchmapid; Type: DEFAULT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblmatchmaps ALTER COLUMN matchmapid SET DEFAULT nextval('dbo.tblmatchmaps_matchmapid_seq'::regclass);
+
+
+--
 -- Name: tblteamrankings teamrankingid; Type: DEFAULT; Schema: dbo; Owner: whltv
 --
 
@@ -523,14 +608,6 @@ ALTER TABLE ONLY dbo.tblteamrankings ALTER COLUMN teamrankingid SET DEFAULT next
 --
 
 ALTER TABLE ONLY dbo.tblteams ALTER COLUMN teamid SET DEFAULT nextval('dbo.tblteams_teamid_seq'::regclass);
-
-
---
--- Name: tbldemofiles tbldemofiles_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
---
-
-ALTER TABLE ONLY dbo.tbldemofiles
-    ADD CONSTRAINT tbldemofiles_pkey PRIMARY KEY (demofileid);
 
 
 --
@@ -587,6 +664,30 @@ ALTER TABLE ONLY dbo.tbllocations
 
 ALTER TABLE ONLY dbo.tbllocations
     ADD CONSTRAINT tbllocations_pkey PRIMARY KEY (locationid);
+
+
+--
+-- Name: tblmaps tblmaps_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblmaps
+    ADD CONSTRAINT tblmaps_pkey PRIMARY KEY (mapid);
+
+
+--
+-- Name: tblmatches tblmatches_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblmatches
+    ADD CONSTRAINT tblmatches_pkey PRIMARY KEY (matchid);
+
+
+--
+-- Name: tblmatchmaps tblmatchmaps_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblmatchmaps
+    ADD CONSTRAINT tblmatchmaps_pkey PRIMARY KEY (matchmapid);
 
 
 --

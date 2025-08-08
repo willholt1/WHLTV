@@ -159,10 +159,12 @@ def scrapeAttendingTeams():
         
     print("Done.")
 
+def scrapeMatches():
+    print("TODO")
 
 def main():
     parser = argparse.ArgumentParser(description="A script that pulls historic HLTV ranking/event data")
-    parser.add_argument("case", choices=["1", "2", "3", "4", "5"], help="Choose 1/2 for Rankings (current/historic) \n3/4 for Events (recent/historic)\n5 for teams attending high value events")
+    parser.add_argument("case", choices=["1", "2", "3", "4", "5", "6"], help="Choose 1/2 for Rankings (current/historic) \n3/4 for Events (recent/historic)\n5 for teams attending high value events\n6 for all recent data")
     args = parser.parse_args()
 
     if args.case == "1":
@@ -175,6 +177,11 @@ def main():
         scrapeHistoricEvents()
     elif args.case == "5":
         scrapeAttendingTeams()
+    elif args.case == "6":
+        scrapeCurrentRankings()
+        scrapeRecentEvents()
+        scrapeAttendingTeams()
+        db.markEventsForDownload()
 
 if __name__ == "__main__":
     main()

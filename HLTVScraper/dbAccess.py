@@ -90,3 +90,18 @@ def insertEventTeams(eventID, teams):
     finally:
         cur.close()
         conn.close()
+
+def markEventsForDownload():
+    conn = psycopg2.connect(**DB_PARAMS)
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "CALL usp_markeventsfordownload();"
+        )
+        conn.commit()
+    except Exception as e:
+        print(f"Error flagging events: {e}")
+        return []
+    finally:
+        cur.close()
+        conn.close()
