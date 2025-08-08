@@ -60,6 +60,29 @@ $_$;
 ALTER FUNCTION dbo.udf_gethighvalueevents() OWNER TO whltv;
 
 --
+-- Name: udf_getresultspages(); Type: FUNCTION; Schema: dbo; Owner: whltv
+--
+
+CREATE FUNCTION dbo.udf_getresultspages() RETURNS TABLE(eventid integer, hltvresultspageurl text)
+    LANGUAGE plpgsql
+    AS $_$
+BEGIN
+    RETURN QUERY
+
+    SELECT te.eventid
+        , 'https://www.hltv.org/results?event=' ||
+        regexp_replace(te.hltvurl, '^https://www\.hltv\.org/events/([0-9]+).*$', '\1')
+        AS HLTVResultsPageURL
+    FROM tblevents te
+    WHERE te.downloadevent = true
+    AND NOT exists(SELECT 1 FROM tblmatches tm WHERE tm.eventid = te.eventid);
+END;
+$_$;
+
+
+ALTER FUNCTION dbo.udf_getresultspages() OWNER TO whltv;
+
+--
 -- Name: usp_InsertTeamRanking(text, integer, integer, integer, integer, timestamp without time zone); Type: PROCEDURE; Schema: dbo; Owner: whltv
 --
 

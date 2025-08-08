@@ -105,3 +105,25 @@ def markEventsForDownload():
     finally:
         cur.close()
         conn.close()
+
+def getResultsPages():
+    conn = psycopg2.connect(**DB_PARAMS)
+    cur = conn.cursor()
+    
+    try:
+        cur.execute("SELECT * FROM dbo.udf_getresultspages();")
+        rows = cur.fetchall()
+            
+        events = []
+        for row in rows:
+            event = {"eventid": row[0], "hltvResultsPageURL": row[1] }
+            events.append(event)
+        
+        return events
+
+    except Exception as e:
+        print(f"Error fetching results URLs: {e}")
+        return []
+    finally:
+        cur.close()
+        conn.close()
