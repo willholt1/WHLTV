@@ -114,12 +114,12 @@ def getResultsPages():
         cur.execute("SELECT * FROM dbo.udf_getresultspages();")
         rows = cur.fetchall()
             
-        events = []
+        resultsPages = []
         for row in rows:
-            event = {"eventid": row[0], "hltvResultsPageURL": row[1] }
-            events.append(event)
+            resultsPage = {"eventid": row[0], "hltvResultsPageURL": row[1] }
+            resultsPages.append(resultsPage)
         
-        return events
+        return resultsPages
 
     except Exception as e:
         print(f"Error fetching results URLs: {e}")
@@ -127,3 +127,27 @@ def getResultsPages():
     finally:
         cur.close()
         conn.close()
+
+
+def insertMatch(eventID, matches):
+    conn = psycopg2.connect(**DB_PARAMS)
+    cur = conn.cursor()
+
+    for team1Name, team2Name, hltvMatchURL, bestOf in matches:
+        try:
+            cur.execute("""
+                CALL dbo.usp_insertmatch(%s, %s, %s, %s, %s)
+                """, (
+                    eventID,
+                    team1Name,
+                    team2Name,
+                    hltvMatchURL,
+                    bestOf
+                ))
+            conn.commit()
+        except Exception as e:
+            conn.rollback()
+            print(f"Failed to insert match '{hltvMatchURL}': {e}")
+    
+    cur.close()
+    conn.close()

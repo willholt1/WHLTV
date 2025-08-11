@@ -205,6 +205,43 @@ $$;
 ALTER PROCEDURE dbo.usp_inserteventteams(IN p_eventid integer, IN p_teams text[]) OWNER TO whltv;
 
 --
+-- Name: usp_insertmatch(integer, text, text, text, integer); Type: PROCEDURE; Schema: dbo; Owner: whltv
+--
+
+CREATE PROCEDURE dbo.usp_insertmatch(IN p_eventid integer, IN p_team1name text, IN p_team2name text, IN p_hltmatchurl text, IN p_bestof integer)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_team1ID INT;
+    v_team2ID INT;
+BEGIN
+
+    -- Insert team if it somehow doesn't exist yet
+    INSERT INTO dbo.tblTeams (teamname)
+    VALUES (p_team1Name), (p_team2Name)
+    ON CONFLICT (TeamName) DO NOTHING;
+
+    -- Get team IDs
+    SELECT TeamID INTO v_team1ID
+    FROM dbo.tblTeams
+    WHERE TeamName = p_team1Name;
+
+    SELECT TeamID INTO v_team2ID
+    FROM dbo.tblTeams
+    WHERE TeamName = p_team2Name;
+
+    INSERT INTO dbo.tblmatches
+    (eventid, team1id, team2id, bestof, hltvmatchpageurl)
+    VALUES
+    (p_eventid, v_team1ID, v_team2ID, p_bestOf, p_hltMatchURL);
+
+END;
+$$;
+
+
+ALTER PROCEDURE dbo.usp_insertmatch(IN p_eventid integer, IN p_team1name text, IN p_team2name text, IN p_hltmatchurl text, IN p_bestof integer) OWNER TO whltv;
+
+--
 -- Name: usp_markeventsfordownload(); Type: PROCEDURE; Schema: dbo; Owner: whltv
 --
 

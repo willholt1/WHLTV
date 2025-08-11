@@ -159,12 +159,23 @@ def scrapeAttendingTeams():
         
     print("Done.")
 
-def scrapeMatches():
-    print("TODO")
+def scrapeEventResults():
+    resultsPages = db.getResultsPages()
+
+    for resultsPage in resultsPages:
+        print("Loading HLTV results page with Selenium...")
+        resultsSoup = fp.fetchPage(resultsPage["hltvResultsPageURL"], "result-con")
+
+        print("Parsing results...")
+        results = ph.parse_Results(resultsSoup)
+
+        print(f"Inserting {len(results)} matches into the DB for eventID {resultsPage['eventid']}...")
+        db.insertMatch(resultsPage["eventid"], results)
+
 
 def main():
     parser = argparse.ArgumentParser(description="A script that pulls historic HLTV ranking/event data")
-    parser.add_argument("case", choices=["1", "2", "3", "4", "5", "6"], help="Choose 1/2 for Rankings (current/historic) \n3/4 for Events (recent/historic)\n5 for teams attending high value events\n6 for all recent data")
+    parser.add_argument("case", choices=["1", "2", "3", "4", "5", "6", "10"], help="Choose 1/2 for Rankings (current/historic) \n3/4 for Events (recent/historic)\n5 for teams attending high value events\n6 for TODO ---------\n10 for all recent data")
     args = parser.parse_args()
 
     if args.case == "1":
@@ -178,6 +189,8 @@ def main():
     elif args.case == "5":
         scrapeAttendingTeams()
     elif args.case == "6":
+        scrapeEventResults()
+    elif args.case == "10":
         scrapeCurrentRankings()
         scrapeRecentEvents()
         scrapeAttendingTeams()

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import re
 
 def parse_EventArchive(soup):
     events = []
@@ -76,3 +77,28 @@ def parse_Rankings(soup):
             print(f"Skipping team due to parse error: {e}")
             continue
     return teams
+
+def parse_Results(soup):
+    results = []
+    for result in soup.select('.result-con > a.a-reset'):
+        try:
+            team1Name = result.select_one('.team1 .team').get_text(strip=True)
+            team2Name = result.select_one('.team2 .team').get_text(strip=True)
+            
+            link = result["href"]
+            hltvMatchURL = f"https://www.hltv.org{link}"
+
+            raw_map_text = result.select_one('.map-text').get_text(strip=True).lower()
+
+            match = re.fullmatch(r'bo(\d+)', raw_map_text, flags=re.IGNORECASE)
+            if match:
+                bestOf = int(match.group(1))
+            else:
+                bestOf = 1  # any map name means best-of-one
+
+            results.append((team1Name, team2Name, hltvMatchURL, bestOf))
+
+        except Exception as e:
+            print(f"Skipping team due to parse error: {e}")
+            continue
+    return results
