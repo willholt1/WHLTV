@@ -31,29 +31,30 @@ ALTER SCHEMA dbo OWNER TO whltv;
 
 CREATE FUNCTION dbo.udf_gethighvalueevents() RETURNS TABLE(eventid integer, hltvurl text)
     LANGUAGE plpgsql
-    AS $_$
-BEGIN
-    RETURN QUERY
-    WITH e AS (
-        SELECT t.eventid, t.hltvurl, t.startdate
-        FROM dbo.tblevents t
-        WHERE t.prizepool LIKE '%$%'
-          AND LENGTH(t.prizepool) >= 8
-
-        UNION
-
-        SELECT t2.eventid, t2.hltvurl, t2.startdate
-        FROM dbo.tblevents t2
-        WHERE t2.EventName LIKE '%BLAST%'
-           OR (t2.EventName LIKE '%IEM%' AND t2.eventname NOT LIKE '%Qualifier%')
-           OR (t2.EventName LIKE '%Major%' AND t2.eventname NOT LIKE '%Open Qualifier%')
-           OR (t2.EventName LIKE '%ESL Pro League%' AND t2.eventname NOT LIKE '%Qualifier%')
-    )
-    SELECT e.eventid, e.hltvurl
-    FROM e
-    WHERE NOT EXISTS(select 1 from dbo.tbleventteams et where et.eventid = e.eventid)
-    ORDER BY e.startdate DESC;
-END;
+    AS $_$
+BEGIN
+    RETURN QUERY
+    WITH e AS (
+        SELECT t.eventid, t.hltvurl, t.startdate, t.downloadevent
+        FROM dbo.tblevents t
+        WHERE t.prizepool LIKE '%$%'
+          AND LENGTH(t.prizepool) >= 8
+
+        UNION
+
+        SELECT t2.eventid, t2.hltvurl, t2.startdate, t2.downloadevent
+        FROM dbo.tblevents t2
+        WHERE t2.EventName LIKE '%BLAST%'
+           OR (t2.EventName LIKE '%IEM%' AND t2.eventname NOT LIKE '%Qualifier%')
+           OR (t2.EventName LIKE '%Major%' AND t2.eventname NOT LIKE '%Open Qualifier%')
+           OR (t2.EventName LIKE '%ESL Pro League%' AND t2.eventname NOT LIKE '%Qualifier%')
+    )
+    SELECT e.eventid, e.hltvurl
+    FROM e
+    WHERE NOT EXISTS(select 1 from dbo.tbleventteams et where et.eventid = e.eventid)
+    AND downloadevent <> FALSE
+    ORDER BY e.startdate DESC;
+END;
 $_$;
 
 
@@ -265,7 +266,7 @@ BEGIN
                 LIMIT 1
               ) <= 10
     )
-    AND te.downloadevent IS DISTINCT FROM true;
+    AND te.downloadevent IS NULL;
     
     RAISE NOTICE 'Marked % events for download', FOUND;
 
@@ -535,6 +536,92 @@ ALTER SEQUENCE dbo.tblmatchmaps_matchmapid_seq OWNED BY dbo.tblmatchmaps.matchma
 
 
 --
+-- Name: tblmatchplayers; Type: TABLE; Schema: dbo; Owner: whltv
+--
+
+CREATE TABLE dbo.tblmatchplayers (
+    matchid integer,
+    teamid integer,
+    playerid integer
+);
+
+
+ALTER TABLE dbo.tblmatchplayers OWNER TO whltv;
+
+--
+-- Name: tblmatchveto; Type: TABLE; Schema: dbo; Owner: whltv
+--
+
+CREATE TABLE dbo.tblmatchveto (
+    matchvetoid integer NOT NULL,
+    matchid integer,
+    stepnumber integer,
+    teamid integer,
+    vetoactionid integer,
+    mapid integer
+);
+
+
+ALTER TABLE dbo.tblmatchveto OWNER TO whltv;
+
+--
+-- Name: tblmatchveto_matchvetoid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+--
+
+CREATE SEQUENCE dbo.tblmatchveto_matchvetoid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE dbo.tblmatchveto_matchvetoid_seq OWNER TO whltv;
+
+--
+-- Name: tblmatchveto_matchvetoid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+--
+
+ALTER SEQUENCE dbo.tblmatchveto_matchvetoid_seq OWNED BY dbo.tblmatchveto.matchvetoid;
+
+
+--
+-- Name: tblplayers; Type: TABLE; Schema: dbo; Owner: whltv
+--
+
+CREATE TABLE dbo.tblplayers (
+    playerid integer NOT NULL,
+    alias text,
+    steamid text
+);
+
+
+ALTER TABLE dbo.tblplayers OWNER TO whltv;
+
+--
+-- Name: tblplayers_playerid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+--
+
+CREATE SEQUENCE dbo.tblplayers_playerid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE dbo.tblplayers_playerid_seq OWNER TO whltv;
+
+--
+-- Name: tblplayers_playerid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+--
+
+ALTER SEQUENCE dbo.tblplayers_playerid_seq OWNED BY dbo.tblplayers.playerid;
+
+
+--
 -- Name: tblteamrankings; Type: TABLE; Schema: dbo; Owner: whltv
 --
 
@@ -608,6 +695,40 @@ ALTER SEQUENCE dbo.tblteams_teamid_seq OWNED BY dbo.tblteams.teamid;
 
 
 --
+-- Name: tblvetoactions; Type: TABLE; Schema: dbo; Owner: whltv
+--
+
+CREATE TABLE dbo.tblvetoactions (
+    vetoactionid integer NOT NULL,
+    vetoaction text
+);
+
+
+ALTER TABLE dbo.tblvetoactions OWNER TO whltv;
+
+--
+-- Name: tblvetoactions_vetoactionid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+--
+
+CREATE SEQUENCE dbo.tblvetoactions_vetoactionid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE dbo.tblvetoactions_vetoactionid_seq OWNER TO whltv;
+
+--
+-- Name: tblvetoactions_vetoactionid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+--
+
+ALTER SEQUENCE dbo.tblvetoactions_vetoactionid_seq OWNED BY dbo.tblvetoactions.vetoactionid;
+
+
+--
 -- Name: tblevents eventid; Type: DEFAULT; Schema: dbo; Owner: whltv
 --
 
@@ -657,6 +778,20 @@ ALTER TABLE ONLY dbo.tblmatchmaps ALTER COLUMN matchmapid SET DEFAULT nextval('d
 
 
 --
+-- Name: tblmatchveto matchvetoid; Type: DEFAULT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblmatchveto ALTER COLUMN matchvetoid SET DEFAULT nextval('dbo.tblmatchveto_matchvetoid_seq'::regclass);
+
+
+--
+-- Name: tblplayers playerid; Type: DEFAULT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblplayers ALTER COLUMN playerid SET DEFAULT nextval('dbo.tblplayers_playerid_seq'::regclass);
+
+
+--
 -- Name: tblteamrankings teamrankingid; Type: DEFAULT; Schema: dbo; Owner: whltv
 --
 
@@ -668,6 +803,13 @@ ALTER TABLE ONLY dbo.tblteamrankings ALTER COLUMN teamrankingid SET DEFAULT next
 --
 
 ALTER TABLE ONLY dbo.tblteams ALTER COLUMN teamid SET DEFAULT nextval('dbo.tblteams_teamid_seq'::regclass);
+
+
+--
+-- Name: tblvetoactions vetoactionid; Type: DEFAULT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblvetoactions ALTER COLUMN vetoactionid SET DEFAULT nextval('dbo.tblvetoactions_vetoactionid_seq'::regclass);
 
 
 --
@@ -751,6 +893,22 @@ ALTER TABLE ONLY dbo.tblmatchmaps
 
 
 --
+-- Name: tblmatchveto tblmatchveto_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblmatchveto
+    ADD CONSTRAINT tblmatchveto_pkey PRIMARY KEY (matchvetoid);
+
+
+--
+-- Name: tblplayers tblplayers_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblplayers
+    ADD CONSTRAINT tblplayers_pkey PRIMARY KEY (playerid);
+
+
+--
 -- Name: tblteamrankings tblteamrankings_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
 --
 
@@ -772,6 +930,14 @@ ALTER TABLE ONLY dbo.tblteams
 
 ALTER TABLE ONLY dbo.tblteams
     ADD CONSTRAINT tblteams_teamname_key UNIQUE (teamname);
+
+
+--
+-- Name: tblvetoactions tblvetoactions_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblvetoactions
+    ADD CONSTRAINT tblvetoactions_pkey PRIMARY KEY (vetoactionid);
 
 
 --

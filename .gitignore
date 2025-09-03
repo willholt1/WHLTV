@@ -29,3 +29,5 @@ docker-compose.override.yml
 
 # Debug
 debug_hltv.html
+
+*test*
