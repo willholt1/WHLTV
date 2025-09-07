@@ -151,3 +151,6 @@ def insertMatch(eventID, matches):
     
     cur.close()
     conn.close()
+
+def insertMatchData(matchDataJson):
+    pass

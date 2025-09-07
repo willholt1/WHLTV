@@ -7,6 +7,9 @@ import dbAccess as db
 import utility as u
 import logging
 
+from pathlib import Path
+from bs4 import BeautifulSoup
+
 logging.basicConfig(
     filename="scraper.log",  # Log file
     level=logging.INFO,      # Minimum level to log
@@ -172,10 +175,26 @@ def scrapeEventResults():
         print(f"Inserting {len(results)} matches into the DB for eventID {resultsPage['eventid']}...")
         db.insertMatch(resultsPage["eventid"], results)
 
+def scrapeMatchData():
+    # get match URLs
+    matchURLs = [[1, "https://www.hltv.org/matches/2367264/complexity-vs-faze-iem-sydney-2023"]]
+
+    for matchID, url in matchURLs:
+
+        # load match page
+        soup = fp.fetchPage(url, "stats-content")
+        matchDataJson = ph.parse_MatchData(soup, matchID)
+        
+        # save JSON to file for testing
+        Path("test.json").write_text(matchDataJson, encoding="utf-8")
+
+        # db.insertMatchData(matchDataJson)
+
+    pass
 
 def main():
     parser = argparse.ArgumentParser(description="A script that pulls historic HLTV ranking/event data")
-    parser.add_argument("case", choices=["1", "2", "3", "4", "5", "6", "10"], help="Choose 1/2 for Rankings (current/historic) \n3/4 for Events (recent/historic)\n5 for teams attending high value events\n6 for TODO ---------\n10 for all recent data")
+    parser.add_argument("case", choices=["1", "2", "3", "4", "5", "6", "7", "10"], help="Choose 1/2 for Rankings (current/historic) \n3/4 for Events (recent/historic)\n5 for teams attending high value events\n6 for Event results \n7 for match data \n10 for all recent data")
     args = parser.parse_args()
 
     if args.case == "1":
@@ -190,11 +209,14 @@ def main():
         scrapeAttendingTeams()
     elif args.case == "6":
         scrapeEventResults()
+    elif args.case == "7":
+        scrapeMatchData()
     elif args.case == "10":
         scrapeCurrentRankings()
         scrapeRecentEvents()
         scrapeAttendingTeams()
         db.markEventsForDownload()
+        scrapeEventResults()
 
 if __name__ == "__main__":
     main()
