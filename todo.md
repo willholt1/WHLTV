@@ -15,20 +15,25 @@
         - [x] match URL
         - [x] best of
     - [ ] match page data
-        - [ ] veto data
-        - [ ] match notes
-        - [ ] team1 players
-        - [ ] team2 players
-        - [ ] HLTV stats per map per side
-            - [ ] Player
-            - [ ] kills
-            - [ ] deaths
-            - [ ] ADR
-            - [ ] swing %
-            - [ ] HLTV rating version
-            - [ ] HLTV rating
+        - [x] veto data
+        - [x] match notes
+        - [x] team1 players
+        - [x] team2 players
+        - [x] demo download link
+        - [x] HLTV stats per map per side
+            - [x] Player
+            - [x] kills
+            - [x] deaths
+            - [x] ADR
+            - [x] swing %
+            - [x] HLTV rating version
+            - [x] HLTV rating
     - [ ] Download Demo
-        - [ ] Extract zip + save paths to DB
+        - [ ] get link to demo from DB
+        - [ ] download demo zip
+        - [ ] create file structure
+        - [ ] Extract zip to correct folder
+        - [ ] save paths to DB
 
 ## Database
 

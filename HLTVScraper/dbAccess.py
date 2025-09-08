@@ -92,6 +92,7 @@ def insertEventTeams(eventID, teams):
         conn.close()
 
 def markEventsForDownload():
+    print("Marking events for download...")
     conn = psycopg2.connect(**DB_PARAMS)
     cur = conn.cursor()
     try:
