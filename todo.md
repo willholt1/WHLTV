@@ -8,18 +8,19 @@
     - [x] get teams attending
     - [x] get results pages
     - [x] mark events with a top 10 team in attendence for download
-- [ ] scrape matches
+- [x] scrape matches
     - [x] event results page match data
         - [x] team1
         - [x] team2
         - [x] match URL
         - [x] best of
-    - [ ] match page data
+    - [x] match page data
         - [x] veto data
         - [x] match notes
         - [x] team1 players
         - [x] team2 players
         - [x] demo download link
+        - [ ] match date
         - [x] HLTV stats per map per side
             - [x] Player
             - [x] kills
@@ -28,12 +29,12 @@
             - [x] swing %
             - [x] HLTV rating version
             - [x] HLTV rating
-    - [ ] Download Demo
-        - [ ] get link to demo from DB
-        - [ ] download demo zip
-        - [ ] create file structure
-        - [ ] Extract zip to correct folder
-        - [ ] save paths to DB
+- [ ] Download Demo
+    - [ ] get link to demo from DB
+    - [ ] download demo zip
+    - [ ] create file structure
+    - [ ] Extract zip to correct folder
+    - [ ] save paths to DB
 
 ## Database
 
@@ -43,14 +44,15 @@
 - [x] Events - prize pool/LAN/Location
 - [x] Teams attending events
 - [x] Matches - Teams/Best of x/HLTV match page
-- [ ] Veto data
+- [x] Veto data
     - [x] ERD
     - [x] Create tables
-    - [ ] Create procs
-- [ ] Match notes i.e. Quarterfinal
-- [ ] Team rosters for match - how can these be matched to the steamIDs from the demos?
-- [ ] Maps - map versions??
-- [ ] HLTV stats? under own tables as the data is already aggregated 
+    - [x] Create procs
+- [x] Match notes i.e. Quarterfinal
+- [x] Team rosters for match - how can these be matched to the steamIDs from the demos?
+- [x] Maps 
+    - [ ] map versions??
+- [x] HLTV stats? under own tables as the data is already aggregated 
 
 ### Demo meta data
 - [ ] date downloaded

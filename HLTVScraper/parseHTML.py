@@ -113,6 +113,14 @@ def parse_Results(soup):
 
 def parse_MatchData(soup, matchID):
 
+    # Date
+    date_el = soup.select_one(".date[data-unix]")
+    matchDate = (
+        datetime.fromtimestamp(int(date_el["data-unix"]) / 1000, tz=timezone.utc)
+        if date_el and date_el.has_attr("data-unix")
+        else None
+    )
+
     # Match notes
     note_el = soup.select_one(".preformatted-text")
 
@@ -122,6 +130,7 @@ def parse_MatchData(soup, matchID):
 
     md = MatchData(
         matchID = matchID,
+        matchDate = matchDate,
         matchNotes = (note_el.get_text(strip=True) if note_el else None),
         demoLink = demoLink,
         matchVeto = [],

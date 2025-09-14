@@ -2,6 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, asdict, is_dataclass
 from enum import IntEnum
 from typing import Optional, Any, List
+from datetime import datetime
 
 # IDs mirror DB
 class Side(IntEnum):
@@ -81,6 +82,7 @@ class Veto:
 @dataclass
 class MatchData:
     matchID: int
+    matchDate: datetime
     matchNotes: Optional[str] = None
     demoLink: Optional[str] = None
     matchVeto: List[Veto] = field(default_factory=list)

@@ -52,7 +52,7 @@ BEGIN
     SELECT e.eventid, e.hltvurl
     FROM e
     WHERE NOT EXISTS(select 1 from dbo.tbleventteams et where et.eventid = e.eventid)
-    AND downloadevent <> FALSE
+    AND downloadevent ISNULL
     ORDER BY e.startdate DESC;
 END;
 $_$;
@@ -82,6 +82,140 @@ $_$;
 
 
 ALTER FUNCTION dbo.udf_getresultspages() OWNER TO whltv;
+
+--
+-- Name: udf_insert_match_playerdata(jsonb, integer); Type: FUNCTION; Schema: dbo; Owner: whltv
+--
+
+CREATE FUNCTION dbo.udf_insert_match_playerdata(p_payload jsonb, p_matchid integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+
+    -- 1) Flatten players + nested statlines from JSON
+    CREATE TEMP TABLE tmp_flat ON COMMIT DROP AS
+    SELECT
+        p_matchID                              AS match_id,
+        p.alias                                AS alias,
+        p.team                                 AS team_name,
+        (s->>'mapID')::int                     AS map_id,
+        (s->>'sideID')::int                    AS side_id,
+        (s->>'kills')::int                     AS kills,
+        (s->>'deaths')::int                    AS deaths,
+        (s->>'ADR')::numeric(5,2)              AS adr,
+        (s->>'swingPct')::numeric(5,2)         AS swing_pct,
+        (s->>'HLTVRating')::numeric(5,2)       AS hltv_rating,
+        (s->>'HLTVRatingVersion')::text        AS hltv_rating_ver
+    FROM (
+        SELECT p_payload::jsonb AS j
+    ) pld
+    CROSS JOIN LATERAL jsonb_to_recordset(pld.j->'players') AS p(alias text, team text, stats jsonb)
+    CROSS JOIN LATERAL jsonb_array_elements(p.stats) AS s;
+
+
+    -- 2) Ensure Players exist
+    INSERT INTO dbo.tblplayers (alias)
+    SELECT DISTINCT f.alias
+    FROM tmp_flat f
+    WHERE NOT exists(SELECT 1 FROM dbo.tblplayers p WHERE p.alias = f.alias);
+
+    -- 3) Insert match player records
+    INSERT INTO dbo.tblmatchplayers (matchid, teamid, playerid)
+    SELECT DISTINCT
+        f.match_id,
+        t.teamid,
+        tp.playerid
+    FROM tmp_flat f
+    INNER JOIN dbo.tblTeams t ON t.teamname = f.team_name
+    INNER JOIN tblplayers tp on tp.alias = f.alias
+    WHERE NOT exists(SELECT 1 FROM tblmatchplayers tmp WHERE tmp.playerid = tp.playerid AND tmp.teamid = t.teamid AND tmp.matchid = f.match_id);
+
+    -- 4) Insert HLTV player statlines
+    INSERT INTO dbo.tblhltvplayerstats
+    (matchmapid, playerid, sideid, kills, deaths, adr, swingpct, hltvrating, hltvratingversion)
+    SELECT mm.matchmapid,
+           pl.playerid,
+           f.side_id,
+           f.kills,
+           f.deaths,
+           f.adr,
+           f.swing_pct,
+           f.hltv_rating,
+           f.hltv_rating_ver
+    FROM tmp_flat f
+             INNER JOIN dbo.tblteams t ON t.teamname = f.team_name
+             INNER JOIN dbo.tblPlayers pl ON pl.alias = f.alias
+             INNER JOIN dbo.tblMatchMaps mm ON mm.matchid = f.match_id
+        AND mm.MapID = f.map_id
+    WHERE NOT EXISTS(SELECT 1
+                     FROM dbo.tblhltvplayerstats thps
+                     WHERE thps.matchmapid = mm.matchmapid
+                       AND thps.playerid = pl.playerid
+                       AND thps.sideid = f.side_id);
+
+
+END $$;
+
+
+ALTER FUNCTION dbo.udf_insert_match_playerdata(p_payload jsonb, p_matchid integer) OWNER TO whltv;
+
+--
+-- Name: udf_insert_match_veto(jsonb, integer); Type: FUNCTION; Schema: dbo; Owner: whltv
+--
+
+CREATE FUNCTION dbo.udf_insert_match_veto(p_payload jsonb, p_matchid integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+BEGIN
+    DELETE FROM dbo.tblmatchveto mv WHERE mv.matchid = p_matchid;
+
+    WITH payload AS (SELECT p_payload AS j),
+    ins AS (
+        INSERT INTO dbo.tblmatchveto
+          (matchid, stepnumber, teamid, vetoactionid, mapid)
+        SELECT
+            p_matchid,
+            (e.elem->>'stepNumber')::int,
+            tt.teamid,
+            (e.elem->>'vetoActionID')::int,
+            (e.elem->>'mapID')::int
+        FROM payload p
+        CROSS JOIN LATERAL jsonb_array_elements(p.j->'matchVeto') AS e(elem)
+        LEFT JOIN tblteams tt on tt.teamname = e.elem->>'teamName'
+        ORDER BY (e.elem->>'stepNumber')::int
+
+        RETURNING 1
+    )
+    INSERT INTO dbo.tblmatchmaps (matchid, mapid)
+    SELECT DISTINCT
+        p_matchid,
+        (e.elem->>'mapID')::int
+    FROM payload p
+    CROSS JOIN LATERAL jsonb_array_elements(p.j->'matchVeto') AS e(elem)
+    WHERE (e.elem->>'vetoActionID')::int IN (1,3)  -- picks + leftover
+    AND NOT EXISTS(SELECT 1 FROM tblmatchmaps mm WHERE mm.matchid = p_matchid and mm.mapid = (e.elem->>'mapID')::int);
+END $$;
+
+
+ALTER FUNCTION dbo.udf_insert_match_veto(p_payload jsonb, p_matchid integer) OWNER TO whltv;
+
+--
+-- Name: udf_insert_matchpage_match_data(jsonb, integer); Type: FUNCTION; Schema: dbo; Owner: whltv
+--
+
+CREATE FUNCTION dbo.udf_insert_matchpage_match_data(p_payload jsonb, p_matchid integer) RETURNS void
+    LANGUAGE sql
+    AS $$
+    UPDATE dbo.tblMatches AS m
+    SET matchdate = NULLIF(p_payload->>'matchDate','')::timestamptz,
+        matchnotes = p_payload->>'matchNotes',
+        demolink = p_payload->>'demoLink'
+    WHERE m.matchid = p_matchID;
+$$;
+
+
+ALTER FUNCTION dbo.udf_insert_matchpage_match_data(p_payload jsonb, p_matchid integer) OWNER TO whltv;
 
 --
 -- Name: usp_InsertTeamRanking(text, integer, integer, integer, integer, timestamp without time zone); Type: PROCEDURE; Schema: dbo; Owner: whltv
@@ -115,6 +249,28 @@ $$;
 
 
 ALTER PROCEDURE dbo."usp_InsertTeamRanking"(IN p_teamname text, IN p_hltvpoints integer, IN p_hltvrank integer, IN p_vrspoints integer, IN p_vrsrank integer, IN p_rankingdate timestamp without time zone) OWNER TO whltv;
+
+--
+-- Name: usp_insert_matchpage_data_from_json(jsonb); Type: PROCEDURE; Schema: dbo; Owner: whltv
+--
+
+CREATE PROCEDURE dbo.usp_insert_matchpage_data_from_json(IN p_payload jsonb)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_match_id int := (p_payload->>'matchID')::int;
+BEGIN
+
+    PERFORM dbo.udf_insert_matchpage_match_data(p_payload, v_match_id);  
+    PERFORM dbo.udf_insert_match_veto(p_payload, v_match_id);    
+    PERFORM dbo.udf_insert_match_playerdata(p_payload, v_match_id);
+
+EXCEPTION WHEN OTHERS THEN
+    RAISE;
+END $$;
+
+
+ALTER PROCEDURE dbo.usp_insert_matchpage_data_from_json(IN p_payload jsonb) OWNER TO whltv;
 
 --
 -- Name: usp_insertevent(text, text, timestamp with time zone, timestamp with time zone, text, text, text); Type: PROCEDURE; Schema: dbo; Owner: whltv
@@ -281,6 +437,40 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: tbldemos; Type: TABLE; Schema: dbo; Owner: whltv
+--
+
+CREATE TABLE dbo.tbldemos (
+    demoid integer NOT NULL,
+    filepath text NOT NULL
+);
+
+
+ALTER TABLE dbo.tbldemos OWNER TO whltv;
+
+--
+-- Name: tbldemos_demoid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+--
+
+CREATE SEQUENCE dbo.tbldemos_demoid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE dbo.tbldemos_demoid_seq OWNER TO whltv;
+
+--
+-- Name: tbldemos_demoid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+--
+
+ALTER SEQUENCE dbo.tbldemos_demoid_seq OWNED BY dbo.tbldemos.demoid;
+
+
+--
 -- Name: tblevents; Type: TABLE; Schema: dbo; Owner: whltv
 --
 
@@ -391,6 +581,48 @@ ALTER SEQUENCE dbo.tbleventtypes_eventtypeid_seq OWNED BY dbo.tbleventtypes.even
 
 
 --
+-- Name: tblhltvplayerstats; Type: TABLE; Schema: dbo; Owner: whltv
+--
+
+CREATE TABLE dbo.tblhltvplayerstats (
+    hltvplayerstatsid integer NOT NULL,
+    matchmapid integer NOT NULL,
+    playerid integer NOT NULL,
+    sideid integer NOT NULL,
+    kills integer NOT NULL,
+    deaths integer NOT NULL,
+    adr numeric(5,2),
+    swingpct numeric(5,2),
+    hltvrating numeric(5,2),
+    hltvratingversion text
+);
+
+
+ALTER TABLE dbo.tblhltvplayerstats OWNER TO whltv;
+
+--
+-- Name: tblhltvplayerstats_hltvplayerstatsid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+--
+
+CREATE SEQUENCE dbo.tblhltvplayerstats_hltvplayerstatsid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE dbo.tblhltvplayerstats_hltvplayerstatsid_seq OWNER TO whltv;
+
+--
+-- Name: tblhltvplayerstats_hltvplayerstatsid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+--
+
+ALTER SEQUENCE dbo.tblhltvplayerstats_hltvplayerstatsid_seq OWNED BY dbo.tblhltvplayerstats.hltvplayerstatsid;
+
+
+--
 -- Name: tbllocations; Type: TABLE; Schema: dbo; Owner: whltv
 --
 
@@ -469,7 +701,9 @@ CREATE TABLE dbo.tblmatches (
     team2id integer,
     bestof integer,
     matchdate timestamp without time zone,
-    hltvmatchpageurl text
+    hltvmatchpageurl text,
+    matchnotes text,
+    demolink text
 );
 
 
@@ -498,6 +732,18 @@ ALTER SEQUENCE dbo.tblmatches_matchid_seq OWNED BY dbo.tblmatches.matchid;
 
 
 --
+-- Name: tblmatchmapdemos; Type: TABLE; Schema: dbo; Owner: whltv
+--
+
+CREATE TABLE dbo.tblmatchmapdemos (
+    matchmapid integer,
+    demoid integer
+);
+
+
+ALTER TABLE dbo.tblmatchmapdemos OWNER TO whltv;
+
+--
 -- Name: tblmatchmaps; Type: TABLE; Schema: dbo; Owner: whltv
 --
 
@@ -506,8 +752,7 @@ CREATE TABLE dbo.tblmatchmaps (
     matchid integer,
     mapid integer,
     team1score integer,
-    team2score integer,
-    demoid integer
+    team2score integer
 );
 
 
@@ -593,7 +838,8 @@ ALTER SEQUENCE dbo.tblmatchveto_matchvetoid_seq OWNED BY dbo.tblmatchveto.matchv
 CREATE TABLE dbo.tblplayers (
     playerid integer NOT NULL,
     alias text,
-    steamid text
+    steamid text,
+    fullname text
 );
 
 
@@ -729,6 +975,13 @@ ALTER SEQUENCE dbo.tblvetoactions_vetoactionid_seq OWNED BY dbo.tblvetoactions.v
 
 
 --
+-- Name: tbldemos demoid; Type: DEFAULT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tbldemos ALTER COLUMN demoid SET DEFAULT nextval('dbo.tbldemos_demoid_seq'::regclass);
+
+
+--
 -- Name: tblevents eventid; Type: DEFAULT; Schema: dbo; Owner: whltv
 --
 
@@ -747,6 +1000,13 @@ ALTER TABLE ONLY dbo.tbleventteams ALTER COLUMN eventteamid SET DEFAULT nextval(
 --
 
 ALTER TABLE ONLY dbo.tbleventtypes ALTER COLUMN eventtypeid SET DEFAULT nextval('dbo.tbleventtypes_eventtypeid_seq'::regclass);
+
+
+--
+-- Name: tblhltvplayerstats hltvplayerstatsid; Type: DEFAULT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblhltvplayerstats ALTER COLUMN hltvplayerstatsid SET DEFAULT nextval('dbo.tblhltvplayerstats_hltvplayerstatsid_seq'::regclass);
 
 
 --
@@ -813,6 +1073,14 @@ ALTER TABLE ONLY dbo.tblvetoactions ALTER COLUMN vetoactionid SET DEFAULT nextva
 
 
 --
+-- Name: tbldemos tbldemos_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tbldemos
+    ADD CONSTRAINT tbldemos_pkey PRIMARY KEY (demoid);
+
+
+--
 -- Name: tblevents tblevents_hltvurl_key; Type: CONSTRAINT; Schema: dbo; Owner: whltv
 --
 
@@ -850,6 +1118,14 @@ ALTER TABLE ONLY dbo.tbleventtypes
 
 ALTER TABLE ONLY dbo.tbleventtypes
     ADD CONSTRAINT tbleventtypes_pkey PRIMARY KEY (eventtypeid);
+
+
+--
+-- Name: tblhltvplayerstats tblhltvplayerstats_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblhltvplayerstats
+    ADD CONSTRAINT tblhltvplayerstats_pkey PRIMARY KEY (hltvplayerstatsid);
 
 
 --
@@ -938,6 +1214,14 @@ ALTER TABLE ONLY dbo.tblteams
 
 ALTER TABLE ONLY dbo.tblvetoactions
     ADD CONSTRAINT tblvetoactions_pkey PRIMARY KEY (vetoactionid);
+
+
+--
+-- Name: tblmatchmaps uq_matchmaps_matchid_mapid; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+--
+
+ALTER TABLE ONLY dbo.tblmatchmaps
+    ADD CONSTRAINT uq_matchmaps_matchid_mapid UNIQUE (matchid, mapid);
 
 
 --
