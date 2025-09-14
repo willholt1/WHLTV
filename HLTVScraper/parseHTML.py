@@ -116,7 +116,7 @@ def parse_Results(soup):
     return results
 
 def parse_MatchData(soup, matchID):
-
+    print("Parsing match data...")
     # Date
     date_el = soup.select_one(".date[data-unix]")
     matchDate = (

@@ -11,6 +11,80 @@ DB_PARAMS = {
     "port": os.getenv("POSTGRES_PORT", "5432")
 }
 
+#########
+# Get
+#########
+def getHighValueEvents():
+    print("Extracting event list from DB...")
+    conn = psycopg2.connect(**DB_PARAMS)
+    cur = conn.cursor()
+    
+    try:
+        cur.execute("SELECT * FROM dbo.udf_get_high_value_events();")
+        rows = cur.fetchall()
+            
+        events = []
+        for row in rows:
+            event = {"eventid": row[0], "hltvurl": row[1] }
+            events.append(event)
+        
+        return events
+
+    except Exception as e:
+        print(f"Error fetching high-value events: {e}")
+        return []
+    finally:
+        cur.close()
+        conn.close()
+
+def getResultsPages():
+    conn = psycopg2.connect(**DB_PARAMS)
+    cur = conn.cursor()
+    
+    try:
+        cur.execute("SELECT * FROM dbo.udf_get_results_pages();")
+        rows = cur.fetchall()
+            
+        resultsPages = []
+        for row in rows:
+            resultsPage = {"eventid": row[0], "hltvResultsPageURL": row[1] }
+            resultsPages.append(resultsPage)
+        
+        return resultsPages
+
+    except Exception as e:
+        print(f"Error fetching results URLs: {e}")
+        return []
+    finally:
+        cur.close()
+        conn.close()
+
+
+def getMatchPages():
+    conn = psycopg2.connect(**DB_PARAMS)
+    cur = conn.cursor()
+    
+    try:
+        cur.execute("SELECT * FROM dbo.udf_get_match_pages();")
+        rows = cur.fetchall()
+            
+        matchPages = []
+        for row in rows:
+            matchPage = {"matchid": row[0], "hltvMatchPageURL": row[1] }
+            matchPages.append(matchPage)
+        
+        return matchPages
+
+    except Exception as e:
+        print(f"Error fetching results URLs: {e}")
+        return []
+    finally:
+        cur.close()
+        conn.close()
+
+#########
+# Insert
+#########
 def insertTeamRankings(teams, date = None):
     if date == None:
         print(f"Inserting {len(teams)} teams into the database for date {date}...")
@@ -22,7 +96,7 @@ def insertTeamRankings(teams, date = None):
 
     for name, hltv_points, hltv_rank, valve_points, valve_rank in teams:
         cur.execute("""
-            CALL dbo."usp_InsertTeamRanking"(%s, %s, %s, %s, %s, %s)
+            CALL dbo.usp_insert_team_ranking(%s, %s, %s, %s, %s, %s)
         """, (name, hltv_points, hltv_rank, valve_points, valve_rank, date))
 
     conn.commit()
@@ -39,7 +113,7 @@ def insertEvents(events):
     for name, prize_pool, start_date, end_date, event_type, location, url in events:
         try:
             cur.execute("""
-                CALL dbo.usp_InsertEvent(%s::TEXT, %s::TEXT, %s::TIMESTAMPTZ, %s::TIMESTAMPTZ,
+                CALL dbo.usp_insert_event(%s::TEXT, %s::TEXT, %s::TIMESTAMPTZ, %s::TIMESTAMPTZ,
                 %s::TEXT, %s::TEXT, %s::TEXT)
                 """, (
                     name,
@@ -58,29 +132,6 @@ def insertEvents(events):
     cur.close()
     conn.close()
 
-def getHighValueEvents():
-    print("Extracting event list from DB...")
-    conn = psycopg2.connect(**DB_PARAMS)
-    cur = conn.cursor()
-    
-    try:
-        cur.execute("SELECT * FROM dbo.udf_gethighvalueevents();")
-        rows = cur.fetchall()
-            
-        events = []
-        for row in rows:
-            event = {"eventid": row[0], "hltvurl": row[1] }
-            events.append(event)
-        
-        return events
-
-    except Exception as e:
-        print(f"Error fetching high-value events: {e}")
-        return []
-    finally:
-        cur.close()
-        conn.close()
-
 
 def insertEventTeams(eventID, teams):
     print(f"Inserting {len(teams)} teams into the DB for eventID {eventID}...")
@@ -88,50 +139,12 @@ def insertEventTeams(eventID, teams):
     cur = conn.cursor()
     try:
         cur.execute(
-            "CALL dbo.usp_inserteventteams(%s, %s);",
+            "CALL dbo.usp_insert_event_teams(%s, %s);",
             (eventID, teams)
         )
         conn.commit()
     except Exception as e:
         print(f"Error inserting teams: {e}")
-        return []
-    finally:
-        cur.close()
-        conn.close()
-
-def markEventsForDownload():
-    print("Marking events for download...")
-    conn = psycopg2.connect(**DB_PARAMS)
-    cur = conn.cursor()
-    try:
-        cur.execute(
-            "CALL usp_markeventsfordownload();"
-        )
-        conn.commit()
-    except Exception as e:
-        print(f"Error flagging events: {e}")
-        return []
-    finally:
-        cur.close()
-        conn.close()
-
-def getResultsPages():
-    conn = psycopg2.connect(**DB_PARAMS)
-    cur = conn.cursor()
-    
-    try:
-        cur.execute("SELECT * FROM dbo.udf_getresultspages();")
-        rows = cur.fetchall()
-            
-        resultsPages = []
-        for row in rows:
-            resultsPage = {"eventid": row[0], "hltvResultsPageURL": row[1] }
-            resultsPages.append(resultsPage)
-        
-        return resultsPages
-
-    except Exception as e:
-        print(f"Error fetching results URLs: {e}")
         return []
     finally:
         cur.close()
@@ -146,7 +159,7 @@ def insertMatch(eventID, matches):
     for team1Name, team2Name, hltvMatchURL, bestOf in matches:
         try:
             cur.execute("""
-                CALL dbo.usp_insertmatch(%s, %s, %s, %s, %s)
+                CALL dbo.usp_insert_match(%s, %s, %s, %s, %s)
                 """, (
                     eventID,
                     team1Name,
@@ -163,16 +176,37 @@ def insertMatch(eventID, matches):
     conn.close()
 
 def insertMatchData(matchDataJson):
+    print("Inserting matchpage data...")
     conn = psycopg2.connect(**DB_PARAMS)
     cur = conn.cursor()
     try:
         cur.execute(
-            "CALL dbo.usp_insert_matchpage_data_from_json(%s);",
-            (matchDataJson)
+            "CALL dbo.usp_insert_matchpage_data_from_json(%s::jsonb);",
+            (matchDataJson,)
         )
         conn.commit()
     except Exception as e:
         print(f"Error inserting match data: {e}")
+        return []
+    finally:
+        cur.close()
+        conn.close()
+
+#########
+# Update
+#########
+
+def markEventsForDownload():
+    print("Marking events for download...")
+    conn = psycopg2.connect(**DB_PARAMS)
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "CALL usp_mark_events_for_download();"
+        )
+        conn.commit()
+    except Exception as e:
+        print(f"Error flagging events: {e}")
         return []
     finally:
         cur.close()

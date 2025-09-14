@@ -155,14 +155,14 @@ def scrapeEventResults():
 
 def scrapeMatchData():
     # get match URLs
-    matchURLs = [[1, "https://www.hltv.org/matches/2367264/complexity-vs-faze-iem-sydney-2023"]]
+    matchURLs = db.getMatchPages()
 
-    for matchID, url in matchURLs:
-        soup = fp.fetchPage(url, "stats-content")
-        matchDataJson = ph.parse_MatchData(soup, matchID)
+    for match in matchURLs:
+        soup = fp.fetchPage(match["hltvMatchPageURL"], "stats-content")
+        matchDataJson = ph.parse_MatchData(soup, match["matchid"])
         
-        # Insert match data
         db.insertMatchData(matchDataJson)
+        break
 
 
 def main():

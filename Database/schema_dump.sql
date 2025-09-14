@@ -26,10 +26,10 @@ CREATE SCHEMA dbo;
 ALTER SCHEMA dbo OWNER TO whltv;
 
 --
--- Name: udf_gethighvalueevents(); Type: FUNCTION; Schema: dbo; Owner: whltv
+-- Name: udf_get_high_value_events(); Type: FUNCTION; Schema: dbo; Owner: whltv
 --
 
-CREATE FUNCTION dbo.udf_gethighvalueevents() RETURNS TABLE(eventid integer, hltvurl text)
+CREATE FUNCTION dbo.udf_get_high_value_events() RETURNS TABLE(eventid integer, hltvurl text)
     LANGUAGE plpgsql
     AS $_$
 BEGIN
@@ -58,13 +58,33 @@ END;
 $_$;
 
 
-ALTER FUNCTION dbo.udf_gethighvalueevents() OWNER TO whltv;
+ALTER FUNCTION dbo.udf_get_high_value_events() OWNER TO whltv;
 
 --
--- Name: udf_getresultspages(); Type: FUNCTION; Schema: dbo; Owner: whltv
+-- Name: udf_get_match_pages(); Type: FUNCTION; Schema: dbo; Owner: whltv
 --
 
-CREATE FUNCTION dbo.udf_getresultspages() RETURNS TABLE(eventid integer, hltvresultspageurl text)
+CREATE FUNCTION dbo.udf_get_match_pages() RETURNS TABLE(matchid integer, hltvmatchpageurl text)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+
+    SELECT m.matchid, m.hltvmatchpageurl
+    FROM dbo.tblmatches m
+    WHERE demolink IS NULL;
+
+END;
+$$;
+
+
+ALTER FUNCTION dbo.udf_get_match_pages() OWNER TO whltv;
+
+--
+-- Name: udf_get_results_pages(); Type: FUNCTION; Schema: dbo; Owner: whltv
+--
+
+CREATE FUNCTION dbo.udf_get_results_pages() RETURNS TABLE(eventid integer, hltvresultspageurl text)
     LANGUAGE plpgsql
     AS $_$
 BEGIN
@@ -81,7 +101,7 @@ END;
 $_$;
 
 
-ALTER FUNCTION dbo.udf_getresultspages() OWNER TO whltv;
+ALTER FUNCTION dbo.udf_get_results_pages() OWNER TO whltv;
 
 --
 -- Name: udf_insert_match_playerdata(jsonb, integer); Type: FUNCTION; Schema: dbo; Owner: whltv
@@ -218,65 +238,10 @@ $$;
 ALTER FUNCTION dbo.udf_insert_matchpage_match_data(p_payload jsonb, p_matchid integer) OWNER TO whltv;
 
 --
--- Name: usp_InsertTeamRanking(text, integer, integer, integer, integer, timestamp without time zone); Type: PROCEDURE; Schema: dbo; Owner: whltv
+-- Name: usp_insert_event(text, text, timestamp with time zone, timestamp with time zone, text, text, text); Type: PROCEDURE; Schema: dbo; Owner: whltv
 --
 
-CREATE PROCEDURE dbo."usp_InsertTeamRanking"(IN p_teamname text, IN p_hltvpoints integer, IN p_hltvrank integer, IN p_vrspoints integer, IN p_vrsrank integer, IN p_rankingdate timestamp without time zone DEFAULT NULL::timestamp without time zone)
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_teamID INTEGER;
-    v_rankingDate TIMESTAMP;
-BEGIN
-    -- current timestamp if null date
-    v_rankingDate := COALESCE(p_rankingDate, CURRENT_TIMESTAMP);
-
-    -- Insert team if it doesn't exist
-    INSERT INTO dbo.tblTeams (TeamName)
-    VALUES (p_teamName)
-    ON CONFLICT (TeamName) DO NOTHING;
-
-    -- Get team ID
-    SELECT TeamID INTO v_teamID
-    FROM dbo.tblTeams
-    WHERE TeamName = p_teamName;
-
-    -- Insert team ranking snapshot
-    INSERT INTO dbo.tblTeamRankings (TeamID, HLTVPoints, HLTVRank, VRSPoints, VRSRank, RankingDate)
-    VALUES (v_teamID, p_HLTVPoints, p_HLTVRank, p_VRSPoints, p_VRSRank, v_rankingDate);
-END;
-$$;
-
-
-ALTER PROCEDURE dbo."usp_InsertTeamRanking"(IN p_teamname text, IN p_hltvpoints integer, IN p_hltvrank integer, IN p_vrspoints integer, IN p_vrsrank integer, IN p_rankingdate timestamp without time zone) OWNER TO whltv;
-
---
--- Name: usp_insert_matchpage_data_from_json(jsonb); Type: PROCEDURE; Schema: dbo; Owner: whltv
---
-
-CREATE PROCEDURE dbo.usp_insert_matchpage_data_from_json(IN p_payload jsonb)
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_match_id int := (p_payload->>'matchID')::int;
-BEGIN
-
-    PERFORM dbo.udf_insert_matchpage_match_data(p_payload, v_match_id);  
-    PERFORM dbo.udf_insert_match_veto(p_payload, v_match_id);    
-    PERFORM dbo.udf_insert_match_playerdata(p_payload, v_match_id);
-
-EXCEPTION WHEN OTHERS THEN
-    RAISE;
-END $$;
-
-
-ALTER PROCEDURE dbo.usp_insert_matchpage_data_from_json(IN p_payload jsonb) OWNER TO whltv;
-
---
--- Name: usp_insertevent(text, text, timestamp with time zone, timestamp with time zone, text, text, text); Type: PROCEDURE; Schema: dbo; Owner: whltv
---
-
-CREATE PROCEDURE dbo.usp_insertevent(IN p_eventname text, IN p_prizepool text, IN p_startdate timestamp with time zone, IN p_enddate timestamp with time zone, IN p_eventtypename text, IN p_locationname text, IN p_hltvurl text)
+CREATE PROCEDURE dbo.usp_insert_event(IN p_eventname text, IN p_prizepool text, IN p_startdate timestamp with time zone, IN p_enddate timestamp with time zone, IN p_eventtypename text, IN p_locationname text, IN p_hltvurl text)
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -315,13 +280,13 @@ END;
 $$;
 
 
-ALTER PROCEDURE dbo.usp_insertevent(IN p_eventname text, IN p_prizepool text, IN p_startdate timestamp with time zone, IN p_enddate timestamp with time zone, IN p_eventtypename text, IN p_locationname text, IN p_hltvurl text) OWNER TO whltv;
+ALTER PROCEDURE dbo.usp_insert_event(IN p_eventname text, IN p_prizepool text, IN p_startdate timestamp with time zone, IN p_enddate timestamp with time zone, IN p_eventtypename text, IN p_locationname text, IN p_hltvurl text) OWNER TO whltv;
 
 --
--- Name: usp_inserteventteams(integer, text[]); Type: PROCEDURE; Schema: dbo; Owner: whltv
+-- Name: usp_insert_event_teams(integer, text[]); Type: PROCEDURE; Schema: dbo; Owner: whltv
 --
 
-CREATE PROCEDURE dbo.usp_inserteventteams(IN p_eventid integer, IN p_teams text[])
+CREATE PROCEDURE dbo.usp_insert_event_teams(IN p_eventid integer, IN p_teams text[])
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -359,13 +324,13 @@ END;
 $$;
 
 
-ALTER PROCEDURE dbo.usp_inserteventteams(IN p_eventid integer, IN p_teams text[]) OWNER TO whltv;
+ALTER PROCEDURE dbo.usp_insert_event_teams(IN p_eventid integer, IN p_teams text[]) OWNER TO whltv;
 
 --
--- Name: usp_insertmatch(integer, text, text, text, integer); Type: PROCEDURE; Schema: dbo; Owner: whltv
+-- Name: usp_insert_match(integer, text, text, text, integer); Type: PROCEDURE; Schema: dbo; Owner: whltv
 --
 
-CREATE PROCEDURE dbo.usp_insertmatch(IN p_eventid integer, IN p_team1name text, IN p_team2name text, IN p_hltmatchurl text, IN p_bestof integer)
+CREATE PROCEDURE dbo.usp_insert_match(IN p_eventid integer, IN p_team1name text, IN p_team2name text, IN p_hltmatchurl text, IN p_bestof integer)
     LANGUAGE plpgsql
     AS $$
 DECLARE
@@ -396,13 +361,68 @@ END;
 $$;
 
 
-ALTER PROCEDURE dbo.usp_insertmatch(IN p_eventid integer, IN p_team1name text, IN p_team2name text, IN p_hltmatchurl text, IN p_bestof integer) OWNER TO whltv;
+ALTER PROCEDURE dbo.usp_insert_match(IN p_eventid integer, IN p_team1name text, IN p_team2name text, IN p_hltmatchurl text, IN p_bestof integer) OWNER TO whltv;
 
 --
--- Name: usp_markeventsfordownload(); Type: PROCEDURE; Schema: dbo; Owner: whltv
+-- Name: usp_insert_matchpage_data_from_json(jsonb); Type: PROCEDURE; Schema: dbo; Owner: whltv
 --
 
-CREATE PROCEDURE dbo.usp_markeventsfordownload()
+CREATE PROCEDURE dbo.usp_insert_matchpage_data_from_json(IN p_payload jsonb)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_match_id int := (p_payload->>'matchID')::int;
+BEGIN
+
+    PERFORM dbo.udf_insert_matchpage_match_data(p_payload, v_match_id);  
+    PERFORM dbo.udf_insert_match_veto(p_payload, v_match_id);    
+    PERFORM dbo.udf_insert_match_playerdata(p_payload, v_match_id);
+
+EXCEPTION WHEN OTHERS THEN
+    RAISE;
+END $$;
+
+
+ALTER PROCEDURE dbo.usp_insert_matchpage_data_from_json(IN p_payload jsonb) OWNER TO whltv;
+
+--
+-- Name: usp_insert_team_ranking(text, integer, integer, integer, integer, timestamp without time zone); Type: PROCEDURE; Schema: dbo; Owner: whltv
+--
+
+CREATE PROCEDURE dbo.usp_insert_team_ranking(IN p_teamname text, IN p_hltvpoints integer, IN p_hltvrank integer, IN p_vrspoints integer, IN p_vrsrank integer, IN p_rankingdate timestamp without time zone DEFAULT NULL::timestamp without time zone)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_teamID INTEGER;
+    v_rankingDate TIMESTAMP;
+BEGIN
+    -- current timestamp if null date
+    v_rankingDate := COALESCE(p_rankingDate, CURRENT_TIMESTAMP);
+
+    -- Insert team if it doesn't exist
+    INSERT INTO dbo.tblTeams (TeamName)
+    VALUES (p_teamName)
+    ON CONFLICT (TeamName) DO NOTHING;
+
+    -- Get team ID
+    SELECT TeamID INTO v_teamID
+    FROM dbo.tblTeams
+    WHERE TeamName = p_teamName;
+
+    -- Insert team ranking snapshot
+    INSERT INTO dbo.tblTeamRankings (TeamID, HLTVPoints, HLTVRank, VRSPoints, VRSRank, RankingDate)
+    VALUES (v_teamID, p_HLTVPoints, p_HLTVRank, p_VRSPoints, p_VRSRank, v_rankingDate);
+END;
+$$;
+
+
+ALTER PROCEDURE dbo.usp_insert_team_ranking(IN p_teamname text, IN p_hltvpoints integer, IN p_hltvrank integer, IN p_vrspoints integer, IN p_vrsrank integer, IN p_rankingdate timestamp without time zone) OWNER TO whltv;
+
+--
+-- Name: usp_mark_events_for_download(); Type: PROCEDURE; Schema: dbo; Owner: whltv
+--
+
+CREATE PROCEDURE dbo.usp_mark_events_for_download()
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -430,7 +450,7 @@ END;
 $$;
 
 
-ALTER PROCEDURE dbo.usp_markeventsfordownload() OWNER TO whltv;
+ALTER PROCEDURE dbo.usp_mark_events_for_download() OWNER TO whltv;
 
 SET default_tablespace = '';
 
