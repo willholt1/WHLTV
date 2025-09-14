@@ -10,6 +10,7 @@ from models import MatchData, Player, StatLine, Side, Map, Veto, VetoAction, map
 from serialise import DataclassEnumEncoder
 
 def parse_EventArchive(soup):
+    print("Parsing events...")
     events = []
 
     for event in soup.select("a.small-event"):
@@ -57,6 +58,7 @@ def parse_EventArchive(soup):
     return events
 
 def parse_EventPage_GetAttendingTeams(soup):
+    print("Parsing attending teams...")
     teams = []
 
     for team in soup.select(".team-box"):
@@ -71,6 +73,7 @@ def parse_EventPage_GetAttendingTeams(soup):
     return teams
 
 def parse_Rankings(soup):
+    print("Parsing rankings...")
     teams = []
     for team_div in soup.select('.ranked-team'):
         try:
@@ -87,6 +90,7 @@ def parse_Rankings(soup):
     return teams
 
 def parse_Results(soup):
+    print("Parsing event results...")
     results = []
     for result in soup.select('.result-con > a.a-reset'):
         try:

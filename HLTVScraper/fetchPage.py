@@ -8,6 +8,7 @@ import undetected_chromedriver as uc
 import logging
 
 def fetchPage(url, className):
+    print(f"Loading {url} with Selenium...")
     chromedriver_path = ChromeDriverManager().install()
 
     options = uc.ChromeOptions()

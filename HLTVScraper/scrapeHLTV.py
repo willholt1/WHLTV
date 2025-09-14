@@ -19,19 +19,15 @@ logging.basicConfig(
 logging.getLogger("WDM").setLevel(logging.WARNING)
 
 def scrapeCurrentRankings():
-    print("Loading HLTV rankings with Selenium...")
     hltvSoup = fp.fetchPage("https://www.hltv.org/ranking/teams", "ranked-team")
 
-    print("Loading Valve rankings with Selenium...")
     valveSoup = fp.fetchPage("https://www.hltv.org/valve-ranking/teams", "ranked-team")
 
-    print("Parsing rankings...")
     hltvTeams = ph.parse_Rankings(hltvSoup)
     valveTeams = ph.parse_Rankings(valveSoup)
 
     combinedRanking = u.util_JoinTeamRankings(hltvTeams, valveTeams)
 
-    print(f"Inserting {len(combinedRanking)} teams into the database...")
     db.insertTeamRankings(combinedRanking)
 
     print("Done.")
@@ -58,7 +54,6 @@ def scrapeHistoricRankings():
         else:
             skipValve = False
 
-        print("Loading HLTV rankings with Selenium...")
         hltvSoup = fp.fetchPage(f"https://www.hltv.org/ranking/teams/{date['year']}/{date['month']}/{date['day']}", "ranked-team")
 
         if hltvSoup is None:
@@ -69,7 +64,6 @@ def scrapeHistoricRankings():
         hltvTeams = ph.parse_Rankings(hltvSoup)
 
         if not skipValve:
-            print("Loading Valve rankings with Selenium...")
             valveSoup = fp.fetchPage(f"https://www.hltv.org/valve-ranking/teams/{date['year']}/{date['month']}/{date['day']}", "ranked-team")
             
             if valveSoup is None:
@@ -86,8 +80,6 @@ def scrapeHistoricRankings():
             for name, hltv_points, hltv_rank in hltvTeams:
                 combinedRanking.append((name, hltv_points, hltv_rank, None, None))
         
-
-        print(f"Inserting {len(combinedRanking)} teams into the database for date {date['date']}...")
         db.insertTeamRankings(combinedRanking, date['date'])
 
         time.sleep(20)
@@ -95,13 +87,10 @@ def scrapeHistoricRankings():
     print("Done.")
 
 def scrapeRecentEvents():
-    print("Loading HLTV events with Selenium...")
     hltvSoup = fp.fetchPage("https://www.hltv.org/events/archive", "small-event")
 
-    print("Parsing events...")
     events = ph.parse_EventArchive(hltvSoup)
 
-    print(f"Inserting {len(events)} teams into the database...")
     db.insertEvents(events)
 
     print("Done.")
@@ -112,7 +101,6 @@ def scrapeHistoricEvents():
     loop = True
     i = 0
     while loop:
-        print("Loading HLTV events with Selenium...")
         print(f"Offset: {i}")
         
         if i == 0:
@@ -124,10 +112,8 @@ def scrapeHistoricEvents():
             print(f"Skipping offset: {i} due to error")
             continue
 
-        print("Parsing events...")
         events = ph.parse_EventArchive(hltvSoup)
 
-        print(f"Inserting {len(events)} teams into the database...")
         db.insertEvents(events)
 
         print("Checking event dates...")
@@ -140,11 +126,9 @@ def scrapeHistoricEvents():
     print("Done.")
 
 def scrapeAttendingTeams():
-    print("Extracting event list from DB...")
     events = db.getHighValueEvents()
 
     for event in events:
-        print("Loading HLTV event page with Selenium...")
         print(event["hltvurl"])
         
         eventSoup = fp.fetchPage(event["hltvurl"], "team-box")
@@ -153,11 +137,8 @@ def scrapeAttendingTeams():
             print(f"Skipping eventID {event['eventid']} due to error")
             continue
 
-        print("Parsing teams...")
         attendingTeams = ph.parse_EventPage_GetAttendingTeams(eventSoup)
 
-        print(f"Inserting {len(attendingTeams)} teams into the DB for eventID {event['eventid']}...")
-        print(attendingTeams)
         db.insertEventTeams(event["eventid"], attendingTeams)
         
     print("Done.")
@@ -166,13 +147,10 @@ def scrapeEventResults():
     resultsPages = db.getResultsPages()
 
     for resultsPage in resultsPages:
-        print("Loading HLTV results page with Selenium...")
         resultsSoup = fp.fetchPage(resultsPage["hltvResultsPageURL"], "result-con")
 
-        print("Parsing results...")
         results = ph.parse_Results(resultsSoup)
 
-        print(f"Inserting {len(results)} matches into the DB for eventID {resultsPage['eventid']}...")
         db.insertMatch(resultsPage["eventid"], results)
 
 def scrapeMatchData():
@@ -180,17 +158,12 @@ def scrapeMatchData():
     matchURLs = [[1, "https://www.hltv.org/matches/2367264/complexity-vs-faze-iem-sydney-2023"]]
 
     for matchID, url in matchURLs:
-
-        # load match page
         soup = fp.fetchPage(url, "stats-content")
         matchDataJson = ph.parse_MatchData(soup, matchID)
         
-        # save JSON to file for testing
-        Path("test.json").write_text(matchDataJson, encoding="utf-8")
+        # Insert match data
+        db.insertMatchData(matchDataJson)
 
-        # db.insertMatchData(matchDataJson)
-
-    pass
 
 def main():
     parser = argparse.ArgumentParser(description="A script that pulls historic HLTV ranking/event data")

@@ -12,7 +12,11 @@ DB_PARAMS = {
 }
 
 def insertTeamRankings(teams, date = None):
-    
+    if date == None:
+        print(f"Inserting {len(teams)} teams into the database for date {date}...")
+    else:
+        print(f"Inserting {len(teams)} teams into the database...")
+
     conn = psycopg2.connect(**DB_PARAMS)
     cur = conn.cursor()
 
@@ -27,6 +31,8 @@ def insertTeamRankings(teams, date = None):
 
 
 def insertEvents(events):
+    print(f"Inserting {len(events)} events into the database...")
+
     conn = psycopg2.connect(**DB_PARAMS)
     cur = conn.cursor()
 
@@ -53,6 +59,7 @@ def insertEvents(events):
     conn.close()
 
 def getHighValueEvents():
+    print("Extracting event list from DB...")
     conn = psycopg2.connect(**DB_PARAMS)
     cur = conn.cursor()
     
@@ -76,6 +83,7 @@ def getHighValueEvents():
 
 
 def insertEventTeams(eventID, teams):
+    print(f"Inserting {len(teams)} teams into the DB for eventID {eventID}...")
     conn = psycopg2.connect(**DB_PARAMS)
     cur = conn.cursor()
     try:
@@ -131,6 +139,7 @@ def getResultsPages():
 
 
 def insertMatch(eventID, matches):
+    print(f"Inserting {len(matches)} matches into the DB for eventID {eventID}...")
     conn = psycopg2.connect(**DB_PARAMS)
     cur = conn.cursor()
 
@@ -154,4 +163,17 @@ def insertMatch(eventID, matches):
     conn.close()
 
 def insertMatchData(matchDataJson):
-    pass
+    conn = psycopg2.connect(**DB_PARAMS)
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "CALL dbo.usp_insert_matchpage_data_from_json(%s);",
+            (matchDataJson)
+        )
+        conn.commit()
+    except Exception as e:
+        print(f"Error inserting match data: {e}")
+        return []
+    finally:
+        cur.close()
+        conn.close()
