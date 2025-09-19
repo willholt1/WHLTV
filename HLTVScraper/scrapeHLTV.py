@@ -162,7 +162,8 @@ def scrapeMatchData():
         matchDataJson = ph.parse_MatchData(soup, match["matchid"])
         
         db.insertMatchData(matchDataJson)
-        break
+    
+    print("Done.")
 
 
 def main():
@@ -190,6 +191,7 @@ def main():
         scrapeAttendingTeams()
         db.markEventsForDownload()
         scrapeEventResults()
+        scrapeMatchData()
 
 if __name__ == "__main__":
     main()
