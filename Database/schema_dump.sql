@@ -230,7 +230,7 @@ CREATE FUNCTION dbo.udf_insert_matchpage_match_data(p_payload jsonb, p_matchid i
     UPDATE dbo.tblMatches AS m
     SET matchdate = NULLIF(p_payload->>'matchDate','')::timestamptz,
         matchnotes = p_payload->>'matchNotes',
-        demolink = p_payload->>'demoLink'
+        demolink = COALESCE(p_payload->>'demoLink', 'ERROR')
     WHERE m.matchid = p_matchID;
 $$;
 

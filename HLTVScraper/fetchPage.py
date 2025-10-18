@@ -2,6 +2,7 @@ from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException
 from webdriver_manager.chrome import ChromeDriverManager
 import time
 import undetected_chromedriver as uc
@@ -19,7 +20,7 @@ def fetchPage(url, className):
 
     driver.get(url)
 
-    from selenium.common.exceptions import NoSuchElementException
+    print("Page loaded, checking for cookie popup...")
 
     try:
         # Wait a bit in case the popup needs a moment

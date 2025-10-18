@@ -117,151 +117,156 @@ def parse_Results(soup):
 
 def parse_MatchData(soup, matchID):
     print("Parsing match data...")
-    # Date
-    date_el = soup.select_one(".date[data-unix]")
-    matchDate = (
-        datetime.fromtimestamp(int(date_el["data-unix"]) / 1000, tz=timezone.utc)
-        if date_el and date_el.has_attr("data-unix")
-        else None
-    )
-
-    # Match notes
-    note_el = soup.select_one(".preformatted-text")
-
-    # Demo link
-    a = soup.select_one(".vod-popup .vod-text-box a[href^='/download/demo/']")
-    demoLink = urljoin("https://www.hltv.org", a["href"]) if a and a.has_attr("href") else None
-
-    md = MatchData(
-        matchID = matchID,
-        matchDate = matchDate,
-        matchNotes = (note_el.get_text(strip=True) if note_el else None),
-        demoLink = demoLink,
-        matchVeto = [],
-        players = []
-    )
-
-    # Get veto data
-    md.matchVeto = parse_Veto(soup)
-
-    # Get players and init player objects
-    alias_to_player: Dict[str, Player] = {}
-    for lineup in soup.select(".lineups .lineup.standard-box"):
-        team_name_el = lineup.select_one(".box-headline .text-ellipsis") or lineup.select_one(".box-headline")
-        team_name = team_name_el.get_text(strip=True) if team_name_el else None
-        for a in lineup.select(".players a[href^='/player/']"):
-            nick_el = a.select_one(".player-nick")
-            alias = (nick_el.get_text(strip=True) if nick_el else a.get_text(strip=True)) if a else None
-            if alias and alias not in alias_to_player:
-                alias_to_player[alias] = Player(alias=alias, team=team_name, stats=[])
-
-    # Map tabs are expected on all pages - if missing, log + skip
-    map_tabs = soup.select(".stats-menu-link .dynamic-map-name-full")
-    if not map_tabs:
-        logger.warning(
-            "No map tabs found; skipping stats parse. match_id=%s",
-            matchID
+    try:
+        # Date
+        date_el = soup.select_one(".date[data-unix]")
+        matchDate = (
+            datetime.fromtimestamp(int(date_el["data-unix"]) / 1000, tz=timezone.utc)
+            if date_el and date_el.has_attr("data-unix")
+            else None
         )
-        return md
 
-    for tab in map_tabs:
-        map_name = tab.get_text(strip=True)
-        m_id = map_from_str(map_name)
-        
-        # skip aggregate stats
-        if map_name.lower() in ("all maps", "all"):
-            continue
+        # Match notes
+        note_el = soup.select_one(".preformatted-text")
 
-        if not m_id:
+        # Demo link
+        a = soup.select_one(".vod-popup .vod-text-box a[href^='/download/demo/']")
+        demoLink = urljoin("https://www.hltv.org", a["href"]) if a and a.has_attr("href") else None
+
+        md = MatchData(
+            matchID = matchID,
+            matchDate = matchDate,
+            matchNotes = (note_el.get_text(strip=True) if note_el else None),
+            demoLink = demoLink,
+            matchVeto = [],
+            players = []
+        )
+
+        # Get veto data
+        md.matchVeto = parse_Veto(soup)
+
+        # Get players and init player objects
+        alias_to_player: Dict[str, Player] = {}
+        for lineup in soup.select(".lineups .lineup.standard-box"):
+            team_name_el = lineup.select_one(".box-headline .text-ellipsis") or lineup.select_one(".box-headline")
+            team_name = team_name_el.get_text(strip=True) if team_name_el else None
+            for a in lineup.select(".players a[href^='/player/']"):
+                nick_el = a.select_one(".player-nick")
+                alias = (nick_el.get_text(strip=True) if nick_el else a.get_text(strip=True)) if a else None
+                if alias and alias not in alias_to_player:
+                    alias_to_player[alias] = Player(alias=alias, team=team_name, stats=[])
+
+        # Map tabs are expected on all pages - if missing, log + skip
+        map_tabs = soup.select(".stats-menu-link .dynamic-map-name-full")
+        if not map_tabs:
             logger.warning(
-                "Unrecognized map name '%s'; skipping this map. match_id=%s",
-                map_name, matchID
+                "No map tabs found; skipping stats parse. match_id=%s",
+                matchID
             )
-            continue
+            return md
 
-        tab_id = tab.get("id")
-        container = soup.find(id=f"{tab_id}-content") if tab_id else None
-        if not container:
-            logger.warning(
-                "Missing stats container for tab id '%s'; skipping. match_id=%s",
-                tab_id, matchID
-            )
-            continue
+        for tab in map_tabs:
+            map_name = tab.get_text(strip=True)
+            m_id = map_from_str(map_name)
 
-        # rating version
-        rv_el = container.select_one("tr.header-row .rating .ratingDesc")
-        rv = rv_el.get_text(strip=True) if rv_el else "3.0"
-        
-        # Grab ALL T and CT tables (there are usually two of each — one per team)
-        t_tbls  = container.select("table.table.tstats")
-        ct_tbls = container.select("table.table.ctstats")
-        
-        tables = []
-        tables += [(tbl, Side.T) for tbl in t_tbls]
-        tables += [(tbl, Side.CT) for tbl in ct_tbls]
-        
-        for tbl, side_id in tables:
-            for tr in tbl.select("tr"):
-                if tr.select_one("th"):
-                    continue
-                
-                # Robust alias extraction: prefer .player-nick, then any <a>, then cell text
-                players_td = tr.select_one("td.players")
-                if not players_td:
-                    continue
-                
-                nick_el = players_td.select_one(".player-nick")
-                if nick_el:
-                    alias = nick_el.get_text(strip=True)
-                else:
-                    a = players_td.select_one("a")
-                    alias = (a.get_text(strip=True) if a else players_td.get_text(strip=True)).strip()
-        
-                if not alias:
-                    continue
-                
-                # KD -> kills/deaths
-                kd_el = tr.select_one("td.kd")
-                kills = deaths = 0
-                if kd_el:
-                    m = re.match(r"^\s*(\d+)\s*-\s*(\d+)\s*$", kd_el.get_text(strip=True))
-                    if m:
-                        kills, deaths = int(m.group(1)), int(m.group(2))
-        
-                # ADR
-                adr_el = tr.select_one("td.adr")
-                try:
-                    adr = float(adr_el.get_text(strip=True)) if adr_el else 0.0
-                except ValueError:
-                    adr = 0.0
-        
-                # Swing %
-                swing_el = tr.select_one("td.roundSwing")
-                swing = None
-                if swing_el:
-                    s = swing_el.get_text(strip=True).replace("%", "")
+            # skip aggregate stats
+            if map_name.lower() in ("all maps", "all"):
+                continue
+
+            if not m_id:
+                logger.warning(
+                    "Unrecognized map name '%s'; skipping this map. match_id=%s",
+                    map_name, matchID
+                )
+                continue
+
+            tab_id = tab.get("id")
+            container = soup.find(id=f"{tab_id}-content") if tab_id else None
+            if not container:
+                logger.warning(
+                    "Missing stats container for tab id '%s'; skipping. match_id=%s",
+                    tab_id, matchID
+                )
+                continue
+
+            # rating version
+            rv_el = container.select_one("tr.header-row .rating .ratingDesc")
+            rv = rv_el.get_text(strip=True) if rv_el else "3.0"
+
+            # Grab ALL T and CT tables (there are usually two of each — one per team)
+            t_tbls  = container.select("table.table.tstats")
+            ct_tbls = container.select("table.table.ctstats")
+
+            tables = []
+            tables += [(tbl, Side.T) for tbl in t_tbls]
+            tables += [(tbl, Side.CT) for tbl in ct_tbls]
+
+            for tbl, side_id in tables:
+                for tr in tbl.select("tr"):
+                    if tr.select_one("th"):
+                        continue
+                    
+                    # Robust alias extraction: prefer .player-nick, then any <a>, then cell text
+                    players_td = tr.select_one("td.players")
+                    if not players_td:
+                        continue
+                    
+                    nick_el = players_td.select_one(".player-nick")
+                    if nick_el:
+                        alias = nick_el.get_text(strip=True)
+                    else:
+                        a = players_td.select_one("a")
+                        alias = (a.get_text(strip=True) if a else players_td.get_text(strip=True)).strip()
+
+                    if not alias:
+                        continue
+                    
+                    # KD -> kills/deaths
+                    kd_el = tr.select_one("td.kd")
+                    kills = deaths = 0
+                    if kd_el:
+                        m = re.match(r"^\s*(\d+)\s*-\s*(\d+)\s*$", kd_el.get_text(strip=True))
+                        if m:
+                            kills, deaths = int(m.group(1)), int(m.group(2))
+
+                    # ADR
+                    adr_el = tr.select_one("td.adr")
                     try:
-                        swing = float(s)
+                        adr = float(adr_el.get_text(strip=True)) if adr_el else 0.0
                     except ValueError:
-                        swing = None
-        
-                # Rating
-                rating_el = tr.select_one("td.rating")
-                try:
-                    rating = float(rating_el.get_text(strip=True)) if rating_el else 0.0
-                except ValueError:
-                    rating = 0.0
-        
-                # Ensure Player exists
-                if alias in alias_to_player:
-                    alias_to_player[alias].stats.append(StatLine(
-                        mapID=m_id, sideID=side_id, kills=kills, deaths=deaths,
-                        ADR=adr, swingPct=swing, HLTVRating=rating, HLTVRatingVersion=rv
-                    ))
+                        adr = 0.0
 
-    md.players.extend(alias_to_player.values())
+                    # Swing %
+                    swing_el = tr.select_one("td.roundSwing")
+                    swing = None
+                    if swing_el:
+                        s = swing_el.get_text(strip=True).replace("%", "")
+                        try:
+                            swing = float(s)
+                        except ValueError:
+                            swing = None
 
-    return json.dumps(md, cls=DataclassEnumEncoder, ensure_ascii=False)
+                    # Rating
+                    rating_el = tr.select_one("td.rating")
+                    try:
+                        rating = float(rating_el.get_text(strip=True)) if rating_el else 0.0
+                    except ValueError:
+                        rating = 0.0
+
+                    # Ensure Player exists
+                    if alias in alias_to_player:
+                        alias_to_player[alias].stats.append(StatLine(
+                            mapID=m_id, sideID=side_id, kills=kills, deaths=deaths,
+                            ADR=adr, swingPct=swing, HLTVRating=rating, HLTVRatingVersion=rv
+                        ))
+
+        md.players.extend(alias_to_player.values())
+
+        return json.dumps(md, cls=DataclassEnumEncoder, ensure_ascii=False)
+    
+    except Exception as e:
+        print(f"Skipping team due to error: {e}")
+        return None
 
 def parse_Veto(soup):
     # Pick the veto box that is NOT the notes box

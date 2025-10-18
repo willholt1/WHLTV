@@ -20,7 +20,7 @@
         - [x] team1 players
         - [x] team2 players
         - [x] demo download link
-        - [ ] match date
+        - [x] match date
         - [x] HLTV stats per map per side
             - [x] Player
             - [x] kills
@@ -32,8 +32,10 @@
 - [ ] Download Demo
     - [ ] get link to demo from DB
     - [ ] download demo zip
-    - [ ] create file structure
-    - [ ] Extract zip to correct folder
+    - [ ] extract zip
+    - [ ] parse each demo file into parquet files
+    - [ ] create file structure if required
+    - [ ] transfer parquet files to relevant folder
     - [ ] save paths to DB
 
 ## Database

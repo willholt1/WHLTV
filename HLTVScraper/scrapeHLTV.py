@@ -161,7 +161,8 @@ def scrapeMatchData():
         soup = fp.fetchPage(match["hltvMatchPageURL"], "stats-content")
         matchDataJson = ph.parse_MatchData(soup, match["matchid"])
         
-        db.insertMatchData(matchDataJson)
+        if matchDataJson is not None:
+            db.insertMatchData(matchDataJson)
     
     print("Done.")
 
