@@ -8,8 +8,8 @@ import time
 import undetected_chromedriver as uc
 import logging
 
-def fetchPage(url, className):
-    print(f"Loading {url} with Selenium...")
+def createDriver():
+    print("Setting up Selenium driver...")
     chromedriver_path = ChromeDriverManager().install()
 
     options = uc.ChromeOptions()
@@ -17,7 +17,11 @@ def fetchPage(url, className):
     options.add_argument("--disable-gpu")
 
     driver = uc.Chrome(driver_executable_path=chromedriver_path, options=options)
+    return driver
 
+def fetchPage(url, className, driver):
+    print(f"Loading {url} with Selenium...")
+    
     driver.get(url)
 
     print("Page loaded, checking for cookie popup...")
@@ -45,6 +49,5 @@ def fetchPage(url, className):
         return None
 
     html = driver.page_source
-    driver.quit()
 
     return BeautifulSoup(html, "html.parser")

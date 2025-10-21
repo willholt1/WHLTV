@@ -18,10 +18,10 @@ logging.basicConfig(
 # Suppress webdriver-manager INFO logs
 logging.getLogger("WDM").setLevel(logging.WARNING)
 
-def scrapeCurrentRankings():
-    hltvSoup = fp.fetchPage("https://www.hltv.org/ranking/teams", "ranked-team")
+def scrapeCurrentRankings(driver):
+    hltvSoup = fp.fetchPage("https://www.hltv.org/ranking/teams", "ranked-team", driver)
 
-    valveSoup = fp.fetchPage("https://www.hltv.org/valve-ranking/teams", "ranked-team")
+    valveSoup = fp.fetchPage("https://www.hltv.org/valve-ranking/teams", "ranked-team", driver)
 
     hltvTeams = ph.parse_Rankings(hltvSoup)
     valveTeams = ph.parse_Rankings(valveSoup)
@@ -32,7 +32,7 @@ def scrapeCurrentRankings():
 
     print("Done.")
 
-def scrapeHistoricRankings():
+def scrapeHistoricRankings(driver):
     # Start date of first cs2 event - IEM sydney 2023. NOTE: HLTV only have historic pages for monday dates
     startDate = datetime(2023, 10, 16) 
     endDate = datetime.today()
@@ -54,7 +54,7 @@ def scrapeHistoricRankings():
         else:
             skipValve = False
 
-        hltvSoup = fp.fetchPage(f"https://www.hltv.org/ranking/teams/{date['year']}/{date['month']}/{date['day']}", "ranked-team")
+        hltvSoup = fp.fetchPage(f"https://www.hltv.org/ranking/teams/{date['year']}/{date['month']}/{date['day']}", "ranked-team", driver)
 
         if hltvSoup is None:
             print(f"Skipping {date['date']} - HLTV rankings not found.")
@@ -64,7 +64,7 @@ def scrapeHistoricRankings():
         hltvTeams = ph.parse_Rankings(hltvSoup)
 
         if not skipValve:
-            valveSoup = fp.fetchPage(f"https://www.hltv.org/valve-ranking/teams/{date['year']}/{date['month']}/{date['day']}", "ranked-team")
+            valveSoup = fp.fetchPage(f"https://www.hltv.org/valve-ranking/teams/{date['year']}/{date['month']}/{date['day']}", "ranked-team", driver)
             
             if valveSoup is None:
                 print(f"Skipping {date['date']} - Valve rankings not found.")
@@ -86,8 +86,8 @@ def scrapeHistoricRankings():
 
     print("Done.")
 
-def scrapeRecentEvents():
-    hltvSoup = fp.fetchPage("https://www.hltv.org/events/archive", "small-event")
+def scrapeRecentEvents(driver):
+    hltvSoup = fp.fetchPage("https://www.hltv.org/events/archive", "small-event", driver)
 
     events = ph.parse_EventArchive(hltvSoup)
 
@@ -95,7 +95,7 @@ def scrapeRecentEvents():
 
     print("Done.")
 
-def scrapeHistoricEvents():
+def scrapeHistoricEvents(driver):
 
     stopDate = datetime(2023, 10, 16)
     loop = True
@@ -104,10 +104,10 @@ def scrapeHistoricEvents():
         print(f"Offset: {i}")
         
         if i == 0:
-            hltvSoup = fp.fetchPage("https://www.hltv.org/events/archive", "small-event")
+            hltvSoup = fp.fetchPage("https://www.hltv.org/events/archive", "small-event", driver)
         elif i > 0:
-            hltvSoup = fp.fetchPage(f"https://www.hltv.org/events/archive?offset={i}", "small-event")
-        
+            hltvSoup = fp.fetchPage(f"https://www.hltv.org/events/archive?offset={i}", "small-event", driver)
+
         if hltvSoup is None:
             print(f"Skipping offset: {i} due to error")
             continue
@@ -125,13 +125,13 @@ def scrapeHistoricEvents():
 
     print("Done.")
 
-def scrapeAttendingTeams():
+def scrapeAttendingTeams(driver):
     events = db.getHighValueEvents()
 
     for event in events:
         print(event["hltvurl"])
-        
-        eventSoup = fp.fetchPage(event["hltvurl"], "team-box")
+
+        eventSoup = fp.fetchPage(event["hltvurl"], "team-box", driver)
 
         if eventSoup is None:
             print(f"Skipping eventID {event['eventid']} due to error")
@@ -143,22 +143,22 @@ def scrapeAttendingTeams():
         
     print("Done.")
 
-def scrapeEventResults():
+def scrapeEventResults(driver):
     resultsPages = db.getResultsPages()
 
     for resultsPage in resultsPages:
-        resultsSoup = fp.fetchPage(resultsPage["hltvResultsPageURL"], "result-con")
+        resultsSoup = fp.fetchPage(resultsPage["hltvResultsPageURL"], "result-con", driver)
 
         results = ph.parse_Results(resultsSoup)
 
         db.insertMatch(resultsPage["eventid"], results)
 
-def scrapeMatchData():
+def scrapeMatchData(driver):
     # get match URLs
     matchURLs = db.getMatchPages()
 
     for match in matchURLs:
-        soup = fp.fetchPage(match["hltvMatchPageURL"], "stats-content")
+        soup = fp.fetchPage(match["hltvMatchPageURL"], "stats-content", driver)
         matchDataJson = ph.parse_MatchData(soup, match["matchid"])
         
         if matchDataJson is not None:
@@ -172,27 +172,32 @@ def main():
     parser.add_argument("case", choices=["1", "2", "3", "4", "5", "6", "7", "10"], help="Choose 1/2 for Rankings (current/historic) \n3/4 for Events (recent/historic)\n5 for teams attending high value events\n6 for Event results \n7 for match data \n10 for all recent data")
     args = parser.parse_args()
 
+    # Create Selenium driver only once
+    driver = fp.createDriver()
+
     if args.case == "1":
-        scrapeCurrentRankings()
+        scrapeCurrentRankings(driver)
     elif args.case == "2":
-        scrapeHistoricRankings()
+        scrapeHistoricRankings(driver)
     elif args.case == "3":
-        scrapeRecentEvents()
+        scrapeRecentEvents(driver)
     elif args.case == "4":
-        scrapeHistoricEvents()
+        scrapeHistoricEvents(driver)
     elif args.case == "5":
-        scrapeAttendingTeams()
+        scrapeAttendingTeams(driver)
     elif args.case == "6":
-        scrapeEventResults()
+        scrapeEventResults(driver)
     elif args.case == "7":
-        scrapeMatchData()
+        scrapeMatchData(driver)
     elif args.case == "10":
-        scrapeCurrentRankings()
-        scrapeRecentEvents()
-        scrapeAttendingTeams()
+        scrapeCurrentRankings(driver)
+        scrapeRecentEvents(driver)
+        scrapeAttendingTeams(driver)
         db.markEventsForDownload()
-        scrapeEventResults()
-        scrapeMatchData()
+        scrapeEventResults(driver)
+        scrapeMatchData(driver)
+
+    driver.quit()
 
 if __name__ == "__main__":
     main()
