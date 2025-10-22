@@ -15,6 +15,9 @@ def demoToParquet(demoPath, parquetPath):
         event_dfs.append(df)
     full_event_df = pd.concat(event_dfs, ignore_index=True)
 
+    player_events = full_event_df[full_event_df['user_steamid'].notna()].copy()
+    non_player_events = full_event_df[full_event_df['user_steamid'].isna()].copy()
+
     # Fix Type Mismatches for Merging
     tick_data["steamid"] = tick_data["steamid"].astype(str)
     full_event_df["user_steamid"] = full_event_df["user_steamid"].astype(str)
@@ -27,4 +30,14 @@ def demoToParquet(demoPath, parquetPath):
         how='left'
     )
 
-    merged.to_parquet(parquetPath, index=False)
+    non_player_subset = non_player_events[['tick', 'event_type'] + 
+        [col for col in non_player_events.columns if col not in ['tick', 'event_type']]
+    ]
+
+    for col in merged.columns:
+        if col not in non_player_subset.columns:
+            non_player_subset[col] = None
+
+    full_combined = pd.concat([merged, non_player_subset[merged.columns]], ignore_index=True)
+
+    full_combined.to_parquet(parquetPath, index=False)

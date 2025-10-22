@@ -81,6 +81,28 @@ $$;
 ALTER FUNCTION dbo.udf_get_match_pages() OWNER TO whltv;
 
 --
+-- Name: udf_get_match_players(integer); Type: FUNCTION; Schema: dbo; Owner: whltv
+--
+
+CREATE FUNCTION dbo.udf_get_match_players(p_matchid integer) RETURNS TABLE(teamid integer, teamname text, playerid integer, alias text, steamid text)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+
+    SELECT mp.teamid, t.teamname, p.playerid, p.alias, p.steamid
+    FROM tblmatchplayers mp
+    INNER JOIN tblplayers p on p.playerid = mp.playerid
+    INNER JOIN tblteams t on t.teamid = mp.teamid
+    WHERE matchid = p_matchid
+    ORDER BY t.teamid, p.playerid;
+END;
+$$;
+
+
+ALTER FUNCTION dbo.udf_get_match_players(p_matchid integer) OWNER TO whltv;
+
+--
 -- Name: udf_get_results_pages(); Type: FUNCTION; Schema: dbo; Owner: whltv
 --
 
