@@ -8,11 +8,10 @@ def generate_scoreboard(match_id, parquet_path):
     player_teams_df = pd.DataFrame(db.get_player_teams(match_id))
     player_teams_df['alias'] = player_teams_df['alias'].astype(str).str.lower()
 
-    # Load game data from parquet
+    print(f"Loading game data from {parquet_path}...")
     df = pd.read_parquet(parquet_path)
 
-    # --- K/D ---
-
+    print("Calculating K/D...")
     deaths_df = df[df['event_type'] == 'player_death']
 
     kills_df = (
@@ -27,9 +26,9 @@ def generate_scoreboard(match_id, parquet_path):
         .reset_index(name='deaths')
     )
 
-    # --- ADR ---
 
-    round_count = df['event_type'].eq('round_end').sum()
+    print("Calculating ADR...")
+    round_count = df['total_rounds_played'].max()
     damage_df = df[df['event_type'] == 'player_hurt'].copy()
 
     # Need health from previous tick to avoid damage values exceeding current health
@@ -63,8 +62,8 @@ def generate_scoreboard(match_id, parquet_path):
 
     adr_df['ADR'] = adr_df['ADR'] / max(round_count, 1)  # avoid divide by zero
 
-    # --- MERGE ---
-
+    
+    print("Compiling scoreboard...")
     kd_df = (
         kills_df
         .merge(deaths_count_df, left_on='attacker_name', right_on='player_name', how='outer')
@@ -85,5 +84,5 @@ def generate_scoreboard(match_id, parquet_path):
         .sort_values(by=['teamName', 'kills'], ascending=[True, False])
         .reset_index(drop=True)
     )
-
+    print(round_count)
     return scoreboard
