@@ -29,11 +29,15 @@
             - [x] swing %
             - [x] HLTV rating version
             - [x] HLTV rating
+            - [x] make sure this still works with new eco adjusted stats tab on HLTV scoreboard
 - [ ] Download Demo
     - [ ] get link to demo from DB
     - [ ] download demo zip
     - [ ] extract zip
     - [ ] parse each demo file into parquet files
+        - [x] join map demos split accross multiple .dem files to one .parquet
+        - [ ] detect and remove rounds that were restarted due to tech issues
+        - [ ] figure out how to identify maps from the demos - HLTV can mislabel the demo files
     - [ ] create file structure if required
     - [ ] transfer parquet files to relevant folder
     - [ ] save paths to DB

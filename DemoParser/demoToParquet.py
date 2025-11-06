@@ -1,6 +1,7 @@
 from demoparser2 import DemoParser
 import pandas as pd
 import constants as c
+import numpy as np
 
 def demoToParquet(demoPaths, parquetPath):
     tick_data_list = []
@@ -61,5 +62,11 @@ def demoToParquet(demoPaths, parquetPath):
     non_player_subset = non_player_subset.loc[:, non_player_subset.notna().any()]  
 
     full_combined = pd.concat([merged, non_player_subset], ignore_index=True)
+    
+    # Need to force reason to string to avoid pyarrow issues with mixed types
+    # newer demos store "reason" as a string for round_end events
+    # but player_disconnect events use ints
+    full_combined['reason'] = full_combined['reason'].astype('string')
 
     full_combined.to_parquet(parquetPath, index=False)
+
