@@ -41,8 +41,7 @@ def draw_coordinates(positions):
 
     plt.show()
 
-
-def draw_map_surface(positions, downsample=5, alpha_value=50, floor_height=150):
+def generate_map_surface(positions, downsample=5, alpha_value=50, floor_height=150):
     # Downsample positions
     positions = positions.iloc[::downsample, :].copy()
 
@@ -50,9 +49,7 @@ def draw_map_surface(positions, downsample=5, alpha_value=50, floor_height=150):
     z_min, z_max = positions['Z'].min(), positions['Z'].max()
     z_levels = np.arange(z_min, z_max, floor_height)
 
-    plotter = pv.Plotter()
-    colors = ["darkgray", "lightblue", "lightgreen", "lightcoral", "khaki"]
-
+    surfaces = []
     for i, level in enumerate(z_levels):
         floor_slice = positions[
             (positions['Z'] > level) & (positions['Z'] <= level + floor_height)
@@ -64,11 +61,30 @@ def draw_map_surface(positions, downsample=5, alpha_value=50, floor_height=150):
         cloud = pv.PolyData(points)
         try:
             surface = cloud.delaunay_2d(alpha=alpha_value)
-            color = colors[i % len(colors)]
-            plotter.add_mesh(surface, color=color, opacity=0.8)
+            surfaces.append(surface)
         except:
             pass  # skip if surface fails (e.g., too few points)
+    
+    return surfaces
 
+def draw_map_surface(surfaces):
+    plotter = pv.Plotter()
+    colours = ["darkgray", "lightblue", "lightgreen", "lightcoral", "khaki"]
+
+    for i, surface in enumerate(surfaces):
+        try:
+            colour = colours[i % len(colours)]
+            plotter.add_mesh(surface, color=colour, opacity=0.8)
+        except:
+            pass  # skip if surface fails
+        
     plotter.show_grid()
     plotter.set_background("lightgray")
     plotter.show(title="Map Floors View")
+
+
+def save_map_mesh(surfaces):
+    combined_surface = surfaces[0]
+    for s in surfaces[1:]:
+        combined_surface = combined_surface.merge(s)
+        combined_surface.save(surfaceMeshPath := "map_surface.vtk")
