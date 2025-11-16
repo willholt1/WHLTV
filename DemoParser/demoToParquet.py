@@ -1,14 +1,67 @@
+from email import header
 from demoparser2 import DemoParser
 import pandas as pd
 import constants as c
 import numpy as np
+import os
+import re
 
-def demoToParquet(demoPaths, parquetPath):
-    tick_data_list = []
-    event_dfs = []
-    tick_offset = 0
 
-    for demoPath in demoPaths:
+def demoToParquet(demoPaths):
+
+    map_groups = get_map_groups(demoPaths)
+
+    for map_name, demos in map_groups.items():
+        all_tick_data, full_event_df = get_demo_data(demos)
+        full_combined = merge_event_tick_data(all_tick_data, full_event_df)
+
+        parquet_dir = "ParquetFiles"
+        os.makedirs(parquet_dir, exist_ok=True)
+
+        parquet_path = os.path.join(parquet_dir, generate_parquet_filename(demos[0][0], map_name))
+
+        print(f"Writing data for map {map_name} to {parquet_path}...")
+        full_combined.to_parquet(parquet_path, index=False)
+
+def merge_event_tick_data(all_tick_data, full_event_df):
+    non_player_events = full_event_df[full_event_df['user_steamid'].isna()].copy()
+
+    # Fix Type Mismatches for Merging
+    all_tick_data["steamid"] = all_tick_data["steamid"].astype(str)
+    full_event_df["user_steamid"] = full_event_df["user_steamid"].astype(str)
+
+    print("Merging tick and event data...")
+    merged = pd.merge(
+            all_tick_data,
+            full_event_df,
+            left_on=['tick', 'steamid'], 
+            right_on=['tick', 'user_steamid'], 
+            how='left'
+        )
+
+    print("Appending non-player events...")
+    non_player_subset = non_player_events[['tick', 'event_type'] +
+        [col for col in non_player_events.columns if col not in ['tick', 'event_type']]
+        ].copy()
+
+    non_player_subset = non_player_subset.reindex(columns=merged.columns)
+
+    # drop all-NA cols to avoid warnings
+    non_player_subset = non_player_subset.loc[:, non_player_subset.notna().any()]  
+
+    full_combined = pd.concat([merged, non_player_subset], ignore_index=True)
+
+    # Need to force reason to string to avoid pyarrow issues with mixed types
+    # newer demos store "reason" as a string for round_end events
+    # but player_disconnect events use ints
+    full_combined['reason'] = full_combined['reason'].astype('string')
+    return full_combined
+
+def get_demo_data(demos):
+    for demoPath, _ in sorted(demos, key=lambda x: x[1]):
+        tick_data_list = []
+        event_dfs = []
+        tick_offset = 0
         # Initialize parser
         parser = DemoParser(demoPath)
 
@@ -18,7 +71,7 @@ def demoToParquet(demoPaths, parquetPath):
         for col in c.TICK_COLS:
             if col in tick_data.columns:
                 tick_data[col] += tick_offset
-        
+
         tick_data_list.append(tick_data)
 
         for event in c.TRACKED_EVENTS:
@@ -32,41 +85,45 @@ def demoToParquet(demoPaths, parquetPath):
 
         tick_offset += tick_data['tick'].max() + 1
     
+    all_tick_data = pd.concat(tick_data_list, ignore_index=True)
+    full_event_df = pd.concat(event_dfs, ignore_index=True)
 
-    all_tick_data = pd.concat(tick_data_list, ignore_index=True)#.copy()
-    full_event_df = pd.concat(event_dfs, ignore_index=True)#.copy()
-   
-    non_player_events = full_event_df[full_event_df['user_steamid'].isna()].copy()
+    return all_tick_data,full_event_df
 
-    # Fix Type Mismatches for Merging
-    all_tick_data["steamid"] = all_tick_data["steamid"].astype(str)
-    full_event_df["user_steamid"] = full_event_df["user_steamid"].astype(str)
+def get_map_groups(demoPaths):
+    map_groups = {}
+    for demoPath in demoPaths:
+        parser = DemoParser(demoPath)
+        header = parser.parse_header()
+        map_name = header["map_name"]
 
-    print("Merging tick and event data...")
-    merged = pd.merge(
-        all_tick_data,
-        full_event_df,
-        left_on=['tick', 'steamid'], 
-        right_on=['tick', 'user_steamid'], 
-        how='left'
-    )
+        total_rounds_played = parser.parse_ticks(["total_rounds_played"])['total_rounds_played'].max()
+        
+        print(total_rounds_played)
+        print(map_name)
 
-    print("Appending non-player events...")
-    non_player_subset = non_player_events[['tick', 'event_type'] +
-    [col for col in non_player_events.columns if col not in ['tick', 'event_type']]
-    ].copy()
+        if map_name not in map_groups:
+            map_groups[map_name] = []
+        map_groups[map_name].append((demoPath, total_rounds_played))
+    return map_groups
 
-    non_player_subset = non_player_subset.reindex(columns=merged.columns)
 
-    # drop all-NA cols to avoid warnings
-    non_player_subset = non_player_subset.loc[:, non_player_subset.notna().any()]  
+def generate_parquet_filename(demo_path, map_name):
+    filename = os.path.basename(demo_path)
+    name_no_ext = filename.rsplit(".", 1)[0]  # strip extension
 
-    full_combined = pd.concat([merged, non_player_subset], ignore_index=True)
-    
-    # Need to force reason to string to avoid pyarrow issues with mixed types
-    # newer demos store "reason" as a string for round_end events
-    # but player_disconnect events use ints
-    full_combined['reason'] = full_combined['reason'].astype('string')
+    parts = name_no_ext.split("-")
 
-    full_combined.to_parquet(parquetPath, index=False)
+    # Detect if last element matches p1, p2, p10, etc.
+    last = parts[-1]
+    has_part_suffix = re.fullmatch(r"p\d+", last) is not None
 
+    if has_part_suffix:
+        # remove the last part (pX)
+        base = "-".join(parts[:-2])  # remove pX AND the map name it follows
+    else:
+        # remove only the last part (map name)
+        base = "-".join(parts[:-1])
+
+    parquet_name = f"{base}-{map_name}.parquet"
+    return parquet_name

@@ -29,5 +29,5 @@ docker-compose.override.yml
 
 # Debug
 debug_hltv.html
-
+*.parquet
 *test*
