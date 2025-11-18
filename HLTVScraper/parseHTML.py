@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger("hltv.parse")
 
 from models import MatchData, Player, StatLine, Side, Map, Veto, VetoAction, map_from_str, vetoaction_from_str
-from serialise import DataclassEnumEncoder
+from .serialise import DataclassEnumEncoder
 
 def parse_EventArchive(soup):
     print("Parsing events...")
@@ -49,7 +49,6 @@ def parse_EventArchive(soup):
                 location,
                 full_url
             ))
-
 
         except Exception as e:
             print(f"Skipping event due to error: {e}")

@@ -1,6 +1,6 @@
 import pandas as pd
-import constants as c
-import dbAccess as db
+from . import constants as c
+from . import dbAccess as db
 
 def generate_scoreboard(match_id, parquet_path):
     # --- LOAD DATA ---

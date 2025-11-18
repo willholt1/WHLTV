@@ -1,10 +1,10 @@
 import argparse
 from datetime import datetime, timedelta
 import time
-import fetchPage as fp
-import parseHTML as ph
-import dbAccess as db
-import utility as u
+from . import fetchPage as fp
+from . import parseHTML as ph
+from . import dbAccess as db
+from . import utility as u
 import logging
 
 from pathlib import Path

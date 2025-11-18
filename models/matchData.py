@@ -2,7 +2,7 @@ from dataclasses import dataclass, field, asdict, is_dataclass
 from enum import IntEnum
 from typing import Optional, Any, List
 from datetime import datetime
-from WHLTV.models.enums import Map, Side, VetoAction
+from .enums import Map, Side, VetoAction
 
 @dataclass
 class StatLine:

@@ -1,7 +1,7 @@
 from email import header
 from demoparser2 import DemoParser
 import pandas as pd
-import constants as c
+from . import constants as c
 import numpy as np
 import os
 import re
