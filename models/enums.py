@@ -39,6 +39,20 @@ MAP_NAME_TO_ENUM = {
     "cobblestone": Map.COBBLESTONE,
 }
 
+DE_MAP_NAME_TO_ENUM = {
+    "de_mirage": Map.MIRAGE,
+    "de_inferno": Map.INFERNO,
+    "de_nuke": Map.NUKE,
+    "de_overpass": Map.OVERPASS,
+    "de_vertigo": Map.VERTIGO,
+    "de_ancient": Map.ANCIENT,
+    "de_anubis": Map.ANUBIS,
+    "de_dust2": Map.DUST2,
+    "de_train": Map.TRAIN,
+    "de_cache": Map.CACHE,
+    "de_cbble": Map.COBBLESTONE,
+}
+
 VETOACTION_TO_ENUM = {
     "picked": VetoAction.PICK,
     "removed": VetoAction.BAN,
@@ -52,4 +66,5 @@ def map_from_str(s: str) -> Map | None:
 def vetoaction_from_str(s: str) -> VetoAction:
     return VETOACTION_TO_ENUM.get(s.strip().lower())
 
-
+def de_map_from_str(s: str) -> Map | None:
+    return DE_MAP_NAME_TO_ENUM.get(s.strip().lower())

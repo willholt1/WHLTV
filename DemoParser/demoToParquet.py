@@ -5,12 +5,12 @@ from . import constants as c
 import numpy as np
 import os
 import re
-
+from models import enums
 
 def demoToParquet(demoPaths):
 
     map_groups = get_map_groups(demoPaths)
-
+    created_files = {}
     for map_name, demos in map_groups.items():
         all_tick_data, full_event_df = get_demo_data(demos)
         full_combined = merge_event_tick_data(all_tick_data, full_event_df)
@@ -22,6 +22,9 @@ def demoToParquet(demoPaths):
 
         print(f"Writing data for map {map_name} to {parquet_path}...")
         full_combined.to_parquet(parquet_path, index=False)
+
+        created_files[enums.de_map_from_str(map_name)] = parquet_path
+    return created_files
 
 def merge_event_tick_data(all_tick_data, full_event_df):
     non_player_events = full_event_df[full_event_df['user_steamid'].isna()].copy()
