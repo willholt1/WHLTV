@@ -1,4 +1,7 @@
 # WHLTV
+## General
+- [ ] check that all required data can be extracted from the parquet files
+
 ## Scraper
 - [x] scrape team rankings
     - [x] HLTV
@@ -37,7 +40,7 @@
     - [ ] parse each demo file into parquet files
         - [x] join map demos split accross multiple .dem files to one .parquet
         - [ ] detect and remove rounds that were restarted due to tech issues
-        - [ ] figure out how to identify maps from the demos - HLTV can mislabel the demo files
+        - [x] figure out how to identify maps from the demos - HLTV can mislabel the demo files
     - [ ] create file structure if required
     - [ ] transfer parquet files to relevant folder
     - [ ] save paths to DB
