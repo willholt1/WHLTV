@@ -168,6 +168,24 @@ class HLTVMap:
 
         self._round_df = pd.DataFrame(round_rows)
         return self._round_df
+    
+    # in hltvparquet/map.py
+    def round_count(self) -> int:
+        ticks = self.ticks
+        if "total_rounds_played" in ticks.columns:
+            v = ticks["total_rounds_played"].dropna()
+            if not v.empty:
+                return int(v.max())
+    
+        # fallback to events if needed
+        ev = self.events
+        if "event_type" in ev.columns:
+            re = ev[ev["event_type"] == "round_end"]
+            if not re.empty:
+                return int(len(re))
+    
+        return 1
+    
 
     # -----------------------
     # Delegates into analytics

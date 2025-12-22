@@ -41,10 +41,23 @@ def adr(map: HLTVMap) -> pd.Series:
 
     # round count from map.rounds
     rounds_df = map.rounds
-    n_rounds = len(rounds_df) if not rounds_df.empty else 1
+    n_rounds = map.round_count()
 
     return (total_damage / n_rounds).sort_values(ascending=False)
 
+def kpr(map: HLTVMap) -> pd.Series:
+    """
+    Kills per round (KPR) per attacking player.
+
+    Requires:
+    - event_type == 'player_death'
+    - 'attacker_steamid'
+    """
+    kills = kills_mod.kills_per_player(map)
+    rounds_df = map.rounds
+    n_rounds = map.round_count()
+
+    return (kills / n_rounds).sort_values(ascending=False)
 
 def basic_player_stats(map: HLTVMap) -> pd.DataFrame:
     """
@@ -57,10 +70,11 @@ def basic_player_stats(map: HLTVMap) -> pd.DataFrame:
     - deaths
     - adr
     - kd_diff
+    - kpr (kills per round)
     """
     df_ticks = map.ticks
     if df_ticks.empty:
-        return pd.DataFrame(columns=["steamid", "kills", "deaths", "adr", "kd_diff"])
+        return pd.DataFrame(columns=["steamid", "kills", "deaths", "adr", "kd_diff", "kpr"])
 
     # steamid column to use for core identity
     steamid_col = sh.PLAYER_STEAMID_COL if sh.PLAYER_STEAMID_COL in df_ticks.columns else "steamid"
@@ -89,6 +103,10 @@ def basic_player_stats(map: HLTVMap) -> pd.DataFrame:
     adr_series = adr(map)
     adr_series.name = "adr"
 
+    # KPR
+    kpr_series = kpr(map)
+    kpr_series.name = "kpr"
+
     # union of all player ids present in any stat
     idx = sorted(
         set(k.index.tolist())
@@ -102,5 +120,6 @@ def basic_player_stats(map: HLTVMap) -> pd.DataFrame:
     stats["deaths"] = victim_counts.reindex(stats.index).fillna(0).astype(int)
     stats["adr"] = adr_series.reindex(stats.index).fillna(0.0)
     stats["kd_diff"] = stats["kills"] - stats["deaths"]
+    stats["kpr"] = kpr_series.reindex(stats.index).fillna(0.0)
 
     return stats.sort_values(["kills", "adr"], ascending=[False, False])
