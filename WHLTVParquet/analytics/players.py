@@ -40,8 +40,7 @@ def adr(map: HLTVMap) -> pd.Series:
     total_damage = dmg.groupby(attacker_col)["dmg_health"].sum()
 
     # round count from map.rounds
-    rounds_df = map.rounds
-    n_rounds = map.round_count()
+    n_rounds = len(map.rounds)
 
     return (total_damage / n_rounds).sort_values(ascending=False)
 
@@ -54,8 +53,7 @@ def kpr(map: HLTVMap) -> pd.Series:
     - 'attacker_steamid'
     """
     kills = kills_mod.kills_per_player(map)
-    rounds_df = map.rounds
-    n_rounds = map.round_count()
+    n_rounds = len(map.rounds)
 
     return (kills / n_rounds).sort_values(ascending=False)
 

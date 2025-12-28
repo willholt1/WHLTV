@@ -96,96 +96,98 @@ class HLTVMap:
     # -----------------------
     @property
     def rounds(self) -> pd.DataFrame:
-        """
-        Build a basic rounds table from round_start / round_end events.
-
-        Columns (when available):
-        - round_number
-        - start_tick
-        - end_tick
-        - reason (from 'reason' or 'round_win_reason')
-        - round_win_status (if present)
-        """
         if self._round_df is not None:
             return self._round_df
 
         ev = self.events
         if ev.empty:
-            self._round_df = ev.iloc[0:0].copy()
-            return self._round_df
-
-        # round_start & round_end events
-        rs = ev[ev[sh.EVENT_TYPE_COL] == sh.EVENT_ROUND_START].copy()
-        re = ev[ev[sh.EVENT_TYPE_COL] == sh.EVENT_ROUND_END].copy()
-
-        if rs.empty and re.empty:
-            self._round_df = ev.iloc[0:0].copy()
-            return self._round_df
-
-        # if no explicit start events, infer from round_end ticks
-        if rs.empty and not re.empty:
-            rs = re[[sh.TICK_COL]].copy()
-            rs[sh.EVENT_TYPE_COL] = sh.EVENT_ROUND_START
-
-        rs = rs.sort_values(sh.TICK_COL).reset_index(drop=True)
-        re = re.sort_values(sh.TICK_COL).reset_index(drop=True)
-
-        rs["round_number"] = rs.index + 1
-        # align ends by index; if fewer ends than starts, forward-fill
-        re["round_number"] = re.index + 1
-        re = re.set_index("round_number")
-
-        round_rows = []
-        for _, start_row in rs.iterrows():
-            rno = start_row["round_number"]
-            start_tick = start_row.get(sh.TICK_COL, None)
-
-            end_row = re.loc[rno] if rno in re.index else None
-            end_tick = end_row[sh.TICK_COL] if end_row is not None else None
-
-            reason = None
-            round_win_status = None
-
-            # prefer 'reason' if present (you forced it to string in your pipeline)
-            if end_row is not None:
-                if "reason" in end_row.index:
-                    reason = end_row["reason"]
-                elif "round_win_reason" in end_row.index:
-                    reason = end_row["round_win_reason"]
-
-                if "round_win_status" in end_row.index:
-                    round_win_status = end_row["round_win_status"]
-
-            round_rows.append(
-                {
-                    "round_number": rno,
-                    "start_tick": start_tick,
-                    "end_tick": end_tick,
-                    "reason": reason,
-                    "round_win_status": round_win_status,
-                }
+            self._round_df = pd.DataFrame(
+                columns=["round_number", "start_tick", "end_tick"]
             )
+            return self._round_df
 
-        self._round_df = pd.DataFrame(round_rows)
+        # ---------------------------------
+        # Build lifecycle event stream
+        # ---------------------------------
+        round_events = ev[
+            ev[sh.EVENT_TYPE_COL].isin([
+                "round_start",
+                "round_freeze_end",
+                "round_end",
+                "round_officially_ended",
+            ])
+        ].copy()
+
+        round_events = round_events.sort_values(sh.TICK_COL).reset_index(drop=True)
+
+        # ---------------------------------
+        # Sequential scan (ORDERED, NOT ADJACENT)
+        # ---------------------------------
+        rounds = []
+        i = 0
+
+        # ---------------------------------
+        # Edge case: missing round_start at beginning
+        # ---------------------------------
+        if not round_events.empty:
+            first_evt = round_events.loc[0, sh.EVENT_TYPE_COL]
+            if first_evt in ("round_freeze_end", "round_end", "round_officially_ended"):
+                synthetic_start = {
+                    sh.EVENT_TYPE_COL: "round_start",
+                    sh.TICK_COL: round_events.loc[0, sh.TICK_COL] - 1
+                }
+                round_events = pd.concat(
+                    [pd.DataFrame([synthetic_start]), round_events],
+                    ignore_index=True
+                )
+
+
+        rounds = []
+        i = 0
+        
+        while i < len(round_events):
+            evt = round_events.loc[i]
+        
+            if evt[sh.EVENT_TYPE_COL] != "round_start":
+                i += 1
+                continue
+            
+            start_tick = evt[sh.TICK_COL]
+            j = i + 1
+            end_idx = None
+        
+            while j < len(round_events):
+                etype = round_events.loc[j, sh.EVENT_TYPE_COL]
+        
+                if etype in ("round_end", "round_officially_ended"):
+                    end_idx = j
+                    break
+                
+                if etype == "round_start":
+                    # restart — abandon this start
+                    break
+                
+                j += 1
+        
+            if end_idx is None:
+                i += 1
+                continue
+            
+            end_tick = round_events.loc[end_idx, sh.TICK_COL]
+        
+            rounds.append({
+                "round_number": len(rounds) + 1,
+                "start_tick": start_tick,
+                "end_tick": end_tick,
+            })
+        
+            i = end_idx + 1
+        
+    
+    
+        self._round_df = pd.DataFrame(rounds)
         return self._round_df
-    
-    # in hltvparquet/map.py
-    def round_count(self) -> int:
-        ticks = self.ticks
-        if "total_rounds_played" in ticks.columns:
-            v = ticks["total_rounds_played"].dropna()
-            if not v.empty:
-                return int(v.max())
-    
-        # fallback to events if needed
-        ev = self.events
-        if "event_type" in ev.columns:
-            re = ev[ev["event_type"] == "round_end"]
-            if not re.empty:
-                return int(len(re))
-    
-        return 1
-    
+
 
     # -----------------------
     # Delegates into analytics
