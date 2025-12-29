@@ -10,39 +10,111 @@ from .. import schema_helpers as sh
 from . import kills as kills_mod
 
 
-def adr(map: HLTVMap) -> pd.Series:
+def adr(
+    map: HLTVMap,
+    *,
+    exclude_team_damage: bool = False,
+    exclude_self_damage: bool = True,
+) -> pd.Series:
     """
-    Average Damage per Round (ADR) per attacking player.
+    Average Damage per Round (ADR).
 
-    Requires:
-    - event_type == 'player_hurt'
-    - 'attacker_steamid'
-    - 'dmg_health'
+    - Only counts damage within validated round intervals
+    - Optionally excludes team damage
+    - Optionally excludes self damage
     """
+
+    # -----------------------
+    # Preconditions
+    # -----------------------
+    rounds = map.rounds
+    if rounds.empty:
+        return pd.Series(dtype="float")
+
     ev = map.events
     if ev.empty:
         return pd.Series(dtype="float")
 
+    # -----------------------
+    # Select damage events
+    # -----------------------
     dmg = ev[ev[sh.EVENT_TYPE_COL] == sh.EVENT_PLAYER_HURT].copy()
     if dmg.empty:
         return pd.Series(dtype="float")
 
-    # defensive: check required cols
-    sh.ensure_columns(dmg, ["dmg_health"], "ADR (player_hurt)")
-    attacker_col = None
-    for candidate in ["attacker_steamid", "attacker"]:
-        if candidate in dmg.columns:
-            attacker_col = candidate
-            break
-    if attacker_col is None:
-        raise ValueError("ADR: No attacker column found in player_hurt events.")
+    sh.ensure_columns(dmg, [sh.TICK_COL, "dmg_health"], "ADR")
 
+    # -----------------------
+    # Filter to events inside valid rounds
+    # -----------------------
+    # Build array of (start, end) intervals
+    intervals = rounds[["start_tick", "end_tick"]].to_numpy()
+
+    # Vectorised interval check
+    ticks = dmg[sh.TICK_COL].to_numpy()
+
+    in_round = pd.Series(False, index=dmg.index)
+
+    for start, end in intervals:
+        in_round |= (ticks >= start) & (ticks <= end)
+
+    dmg = dmg[in_round]
+
+    if dmg.empty:
+        return pd.Series(dtype="float")
+
+    # -----------------------
+    # Identify attacker / victim
+    # -----------------------
+    attacker_col = next(
+        (c for c in ["attacker_steamid", "attacker"] if c in dmg.columns),
+        None
+    )
+    victim_col = next(
+        (c for c in ["user_steamid", "victim_steamid", "userid"] if c in dmg.columns),
+        None
+    )
+
+    if attacker_col is None or victim_col is None:
+        raise ValueError("ADR: attacker or victim column not found")
+
+    # -----------------------
+    # Exclude self damage
+    # -----------------------
+    if exclude_self_damage:
+        dmg = dmg[dmg[attacker_col] != dmg[victim_col]]
+
+    # -----------------------
+    # Exclude team damage
+    # -----------------------
+    if exclude_team_damage:
+        attacker_team_col = next(
+            (c for c in ["attacker_team", "attacker_team_num"] if c in dmg.columns),
+            None
+        )
+        victim_team_col = next(
+            (c for c in ["user_team", "team_num"] if c in dmg.columns),
+            None
+        )
+
+        if attacker_team_col and victim_team_col:
+            dmg = dmg[dmg[attacker_team_col] != dmg[victim_team_col]]
+
+    if dmg.empty:
+        return pd.Series(dtype="float")
+
+    # -----------------------
+    # Aggregate damage
+    # -----------------------
     total_damage = dmg.groupby(attacker_col)["dmg_health"].sum()
 
-    # round count from map.rounds
-    n_rounds = len(map.rounds)
+    # -----------------------
+    # Divide by valid round count
+    # -----------------------
+    n_rounds = len(rounds)
 
     return (total_damage / n_rounds).sort_values(ascending=False)
+
 
 def kpr(map: HLTVMap) -> pd.Series:
     """
