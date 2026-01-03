@@ -31,3 +31,7 @@ docker-compose.override.yml
 debug_hltv.html
 *.parquet
 *test*
+
+# Python virtual environments
+.venv/
+venv/
