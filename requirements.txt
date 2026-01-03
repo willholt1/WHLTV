@@ -1,4 +1,4 @@
-awpy==2.0.2
+-e ../awpyParquet
 beautifulsoup4>=4.14.3
 demoparser2>=0.40.2
 matplotlib>=3.10.8
