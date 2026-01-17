@@ -12,20 +12,20 @@ def demoToParquet(demoPaths):
     created_files = {}
     map_players = {}
 
-    for map_name, demos in map_groups.items():
-        all_tick_data, full_event_df = get_demo_data(demos)
+    for map_name, map_data in map_groups.items():
+        all_tick_data, full_event_df = get_demo_data(map_data["demos"])
         full_combined = merge_event_tick_data(all_tick_data, full_event_df)
 
         map_players[enums.de_map_from_str(map_name)] = get_player_names(full_combined)
 
         parquet_dir = "ParquetFiles"
         os.makedirs(parquet_dir, exist_ok=True)
-        parquet_path = os.path.join(parquet_dir, generate_parquet_filename(demos[0][0], map_name))
+        parquet_path = os.path.join(parquet_dir, generate_parquet_filename(map_data["demos"][0][0], map_name))
 
         print(f"Writing data for map {map_name} to {parquet_path}...")
         full_combined.to_parquet(parquet_path, index=False)
 
-        created_files[enums.de_map_from_str(map_name)] = parquet_path
+        created_files[enums.de_map_from_str(map_name)] = [parquet_path, map_data["patch_version"]]
     return created_files, map_players
 
 def merge_event_tick_data(all_tick_data, full_event_df):
@@ -101,15 +101,17 @@ def get_map_groups(demoPaths):
         parser = DemoParser(demoPath)
         header = parser.parse_header()
         map_name = header["map_name"]
+        patch_version = header["patch_version"]
 
         total_rounds_played = parser.parse_ticks(["total_rounds_played"])['total_rounds_played'].max()
         
         print(total_rounds_played)
         print(map_name)
+        print(patch_version)
 
         if map_name not in map_groups:
-            map_groups[map_name] = []
-        map_groups[map_name].append((demoPath, total_rounds_played))
+            map_groups[map_name] = {"patch_version": patch_version, "demos": []}
+        map_groups[map_name]["demos"].append((demoPath, total_rounds_played))
     return map_groups
 
 
