@@ -1,4 +1,3 @@
-from email import header
 from demoparser2 import DemoParser
 import pandas as pd
 from . import constants as c
@@ -63,10 +62,10 @@ def merge_event_tick_data(all_tick_data, full_event_df):
     return full_combined
 
 def get_demo_data(demos):
+    tick_data_list = []
+    event_dfs = []
+    tick_offset = 0
     for demoPath, _ in sorted(demos, key=lambda x: x[1]):
-        tick_data_list = []
-        event_dfs = []
-        tick_offset = 0
         # Initialize parser
         parser = DemoParser(demoPath)
 
