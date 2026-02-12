@@ -197,7 +197,7 @@ def main():
         scrapeEventResults(driver)
         scrapeMatchData(driver)
 
-    driver.quit()
+    # driver.quit()
 
 if __name__ == "__main__":
     main()
