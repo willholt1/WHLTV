@@ -79,6 +79,8 @@ def parse_Rankings(soup):
             rank = int(team_div.select_one('.position').text.strip('#'))
             name = team_div.select_one('.name').text.strip()
 
+            print(f"Team: {name} (rank {rank})")
+
             points_text = team_div.select_one('.points').text
             points = int(''.join(filter(str.isdigit, points_text)))
 

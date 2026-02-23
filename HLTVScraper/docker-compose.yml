@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  scraper:
+    build:
+      context: ..
+      dockerfile: HLTVScraper/Dockerfile
+    environment:
+      - DISPLAY=:99
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+    volumes:
+      # Mount the current directory for development
+      - .:/app/HLTVScraper
+      # Optionally mount a volume for persistent data
+      - scraper-data:/app/data
+
+volumes:
+  scraper-data:
