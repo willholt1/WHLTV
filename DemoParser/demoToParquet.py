@@ -28,32 +28,17 @@ def demoToParquet(demoPaths):
     return created_files, map_players
 
 def merge_event_tick_data(all_tick_data, full_event_df):
-    non_player_events = full_event_df[full_event_df['user_steamid'].isna()].copy()
-
-    # Fix Type Mismatches for Merging
+    # Fix Type Mismatches for Merging - convert to string but preserve nulls
     all_tick_data["steamid"] = all_tick_data["steamid"].astype(str)
+    # Replace string representations of None/NaN with actual nulls
+    all_tick_data.loc[all_tick_data["steamid"].isin(["None", "nan", "NaN", "<NA>"]), "steamid"] = None
+    
     full_event_df["user_steamid"] = full_event_df["user_steamid"].astype(str)
+    # Replace string representations of None/NaN with actual nulls
+    full_event_df.loc[full_event_df["user_steamid"].isin(["None", "nan", "NaN", "<NA>"]), "user_steamid"] = None
 
     print("Merging tick and event data...")
-    merged = pd.merge(
-            all_tick_data,
-            full_event_df,
-            left_on=['tick', 'steamid'], 
-            right_on=['tick', 'user_steamid'], 
-            how='left'
-        )
-
-    print("Appending non-player events...")
-    non_player_subset = non_player_events[['tick', 'event_type'] +
-        [col for col in non_player_events.columns if col not in ['tick', 'event_type']]
-        ].copy()
-
-    non_player_subset = non_player_subset.reindex(columns=merged.columns)
-
-    # drop all-NA cols to avoid warnings
-    non_player_subset = non_player_subset.loc[:, non_player_subset.notna().any()]  
-
-    full_combined = pd.concat([merged, non_player_subset], ignore_index=True)
+    full_combined = pd.concat([all_tick_data, full_event_df], ignore_index=True)
 
     # Need to force reason to string to avoid pyarrow issues with mixed types
     # newer demos store "reason" as a string for round_end events
@@ -92,7 +77,7 @@ def get_demo_data(demos):
     all_tick_data = pd.concat(tick_data_list, ignore_index=True)
     full_event_df = pd.concat(event_dfs, ignore_index=True)
 
-    return all_tick_data,full_event_df
+    return all_tick_data, full_event_df
 
 def get_map_groups(demoPaths):
     map_groups = {}
