@@ -28,14 +28,10 @@ def demoToParquet(demoPaths):
     return created_files, map_players
 
 def merge_event_tick_data(all_tick_data, full_event_df):
-    # Fix Type Mismatches for Merging - convert to string but preserve nulls
-    all_tick_data["steamid"] = all_tick_data["steamid"].astype(str)
-    # Replace string representations of None/NaN with actual nulls
-    all_tick_data.loc[all_tick_data["steamid"].isin(["None", "nan", "NaN", "<NA>"]), "steamid"] = None
-    
-    full_event_df["user_steamid"] = full_event_df["user_steamid"].astype(str)
-    # Replace string representations of None/NaN with actual nulls
-    full_event_df.loc[full_event_df["user_steamid"].isin(["None", "nan", "NaN", "<NA>"]), "user_steamid"] = None
+    # Clean all steamid-related columns
+    clean_steamID_cols(all_tick_data, "steamid")
+    clean_steamID_cols(full_event_df, "user_steamid")
+    clean_steamID_cols(full_event_df, "steamid")
 
     print("Merging tick and event data...")
     full_combined = pd.concat([all_tick_data, full_event_df], ignore_index=True)
@@ -63,9 +59,18 @@ def get_demo_data(demos):
 
         tick_data_list.append(tick_data)
 
+        # Parse grenade data separately as it isn't classed as an event
+        print(f"parsing grenade data")
+        df = pd.DataFrame(parser.parse_grenades())
+        df["event_type"] = "grenade_data"
+        for col in c.TICK_COLS:
+            if col in df.columns:
+                df[col] += tick_offset
+        event_dfs.append(df)
+
         for event in c.TRACKED_EVENTS:
             print(f"Parsing event: {event} from {demoPath}")
-            df = pd.DataFrame(parser.parse_event(event))
+            df = pd.DataFrame(parser.parse_event(event, player=c.DEFAULT_PLAYER_PROPS, other=c.DEFAULT_WORLD_PROPS))
             df['event_type'] = event  # tag the event type
             for col in c.TICK_COLS:
                 if col in df.columns:
@@ -125,3 +130,9 @@ def get_player_names(df):
         names = group['player_name'].dropna().unique().tolist()
         player_names[steamid] = names
     return player_names
+
+def clean_steamID_cols(df: pd.DataFrame, column_name: str) -> None:
+    if column_name in df.columns:
+        df[column_name] = df[column_name].astype(str)
+        # Replace string representations of None/NaN with actual nulls
+        df.loc[df[column_name].isin(["None", "nan", "NaN", "<NA>"]), column_name] = None

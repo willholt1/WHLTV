@@ -165,63 +165,104 @@ TRACKED_TICK_PROPS = [
     ,"next_secondary_attack_tick"
     ,"next_secondary_attack_tick_ratio"
     #
-,"team_rounds_total"
-,"team_surrendered"
-,"team_name"
-,"team_score_overtime"
-,"team_match_stat"
-,"team_num_map_victories"
-,"team_score_first_half"
-,"team_score_second_half"
-,"team_clan_name"
-,"is_freeze_period"
-,"is_warmup_period"
-,"warmup_period_end"
-,"warmup_period_start"
-,"is_terrorist_timeout"
-,"is_ct_timeout"
-,"terrorist_timeout_remaining"
-,"ct_timeout_remaining"
-,"num_terrorist_timeouts"
-,"num_ct_timeouts"
-,"is_technical_timeout"
-,"is_waiting_for_resume"
-,"match_start_time"
-,"round_start_time"
-,"restart_round_time"
-,"is_game_restart"
-,"game_start_time"
-,"time_until_next_phase_start"
-,"game_phase"
-,"total_rounds_played"
-,"rounds_played_this_phase"
-,"hostages_remaining"
-,"any_hostages_reached"
-,"has_bombites"
-,"has_rescue_zone"
-,"has_buy_zone"
-,"is_matchmaking"
-,"match_making_mode"
-,"is_valve_dedicated_server"
-,"gungame_prog_weap_ct"
-,"gungame_prog_weap_t"
-,"spectator_slot_count"
-,"is_match_started"
-,"n_best_of_maps"
-,"is_bomb_dropped"
-,"is_bomb_planted"
-,"round_win_status"
-,"round_win_reason"
-,"terrorist_cant_buy"
-,"ct_cant_buy"
-,"ct_losing_streak"
-,"t_losing_streak"
-,"survival_start_time"
-,"round_in_progress"
+    ,"team_rounds_total"
+    ,"team_surrendered"
+    ,"team_name"
+    ,"team_score_overtime"
+    ,"team_match_stat"
+    ,"team_num_map_victories"
+    ,"team_score_first_half"
+    ,"team_score_second_half"
+    ,"team_clan_name"
+    ,"is_freeze_period"
+    ,"is_warmup_period"
+    ,"warmup_period_end"
+    ,"warmup_period_start"
+    ,"is_terrorist_timeout"
+    ,"is_ct_timeout"
+    ,"terrorist_timeout_remaining"
+    ,"ct_timeout_remaining"
+    ,"num_terrorist_timeouts"
+    ,"num_ct_timeouts"
+    ,"is_technical_timeout"
+    ,"is_waiting_for_resume"
+    ,"match_start_time"
+    ,"round_start_time"
+    ,"restart_round_time"
+    ,"is_game_restart"
+    ,"game_start_time"
+    ,"time_until_next_phase_start"
+    ,"game_phase"
+    ,"total_rounds_played"
+    ,"rounds_played_this_phase"
+    ,"hostages_remaining"
+    ,"any_hostages_reached"
+    ,"has_bombites"
+    ,"has_rescue_zone"
+    ,"has_buy_zone"
+    ,"is_matchmaking"
+    ,"match_making_mode"
+    ,"is_valve_dedicated_server"
+    ,"gungame_prog_weap_ct"
+    ,"gungame_prog_weap_t"
+    ,"spectator_slot_count"
+    ,"is_match_started"
+    ,"n_best_of_maps"
+    ,"is_bomb_dropped"
+    ,"is_bomb_planted"
+    ,"round_win_status"
+    ,"round_win_reason"
+    ,"terrorist_cant_buy"
+    ,"ct_cant_buy"
+    ,"ct_losing_streak"
+    ,"t_losing_streak"
+    ,"survival_start_time"
+    ,"round_in_progress"
+    ,"name"
+    ,"steamid"
 ]
 
 TICK_COLS = [
     "tick"
     ,"next_primary_attack_tick"
     ,"next_secondary_attack_tick"
+]
+
+# From AWPY
+DEFAULT_PLAYER_PROPS = [
+    "team_name",
+    "team_clan_name",
+    "X",
+    "Y",
+    "Z",
+    "last_place_name",
+    "velocity_X",
+    "velocity_Y",
+    "velocity_Z",
+    "pitch",
+    "yaw",
+    "health",
+    "armor_value",
+    "inventory",
+    "current_equip_value",
+    "has_defuser",
+    "has_helmet",
+    "flash_duration",
+    "accuracy_penalty",
+    "zoom_lvl",
+    "ping",
+]
+
+DEFAULT_WORLD_PROPS = [
+    "game_time",
+    "is_bomb_planted",
+    "which_bomb_zone",
+    "is_freeze_period",
+    "is_warmup_period",
+    "is_terrorist_timeout",
+    "is_ct_timeout",
+    "is_technical_timeout",
+    "is_waiting_for_resume",
+    "is_match_started",
+    "game_phase",
 ]
