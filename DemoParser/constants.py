@@ -24,6 +24,7 @@ TRACKED_EVENTS = [
     ,"item_pickup_slerp"
     ,"inferno_expire"
     ,"player_hurt"
+    ,"server_cvar"
 ]
 
 TRACKED_TICK_PROPS = [
