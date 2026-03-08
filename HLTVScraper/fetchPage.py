@@ -7,6 +7,12 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 import time
 import logging
+import random
+
+def randomWait(min_seconds=20, max_seconds=40):
+    delay = random.uniform(min_seconds, max_seconds)
+    print(f"Waiting {delay:.1f} seconds...")
+    time.sleep(delay)
 
 def createDriver():
     print("Setting up Selenium driver...")
@@ -34,8 +40,9 @@ def createDriver():
 
 def fetchPage(url, className, driver):
     print(f"Loading {url} with Selenium...")
-    
     driver.get(url)
+
+    randomWait()
 
     print("Page loaded, checking for cookie popup...")
 
