@@ -38,7 +38,10 @@ def createDriver():
     print("Chrome driver initialized successfully")
     return driver
 
-def fetchPage(url, className, driver):
+def fetchPage(url, className, driver=None):
+    if driver is None:
+        driver = createDriver()
+
     print(f"Loading {url} with Selenium...")
     driver.get(url)
 
@@ -63,11 +66,13 @@ def fetchPage(url, className, driver):
         )
     except Exception as e:
         logging.warning(f"Class '{className}' not found on {url}: {e}")
+        print(f"WARNING: Could not find '{className}' on page. Possible Cloudflare block.")
         with open("debug_hltv.html", "w", encoding="utf-8") as f:
             f.write(driver.page_source)
-        driver.quit()
+        print("Page source saved to debug_hltv.html for inspection.")
         return None
 
     html = driver.page_source
-
+    driver.quit()
+    
     return BeautifulSoup(html, "html.parser")

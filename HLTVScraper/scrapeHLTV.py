@@ -18,9 +18,9 @@ logging.basicConfig(
 # Suppress webdriver-manager INFO logs
 logging.getLogger("WDM").setLevel(logging.WARNING)
 
-def scrapeCurrentRankings(driver):
+def scrapeCurrentRankings(driver = None):
     hltvSoup = fp.fetchPage("https://www.hltv.org/ranking/teams", "ranked-team", driver)
-
+    time.sleep(5)
     valveSoup = fp.fetchPage("https://www.hltv.org/valve-ranking/teams", "ranked-team", driver)
 
     hltvTeams = ph.parse_Rankings(hltvSoup)
@@ -32,7 +32,7 @@ def scrapeCurrentRankings(driver):
 
     print("Done.")
 
-def scrapeHistoricRankings(driver):
+def scrapeHistoricRankings(driver = None):
     # Start date of first cs2 event - IEM sydney 2023. NOTE: HLTV only have historic pages for monday dates
     startDate = datetime(2023, 10, 16) 
     endDate = datetime.today()
@@ -86,7 +86,7 @@ def scrapeHistoricRankings(driver):
 
     print("Done.")
 
-def scrapeRecentEvents(driver):
+def scrapeRecentEvents(driver = None):
     hltvSoup = fp.fetchPage("https://www.hltv.org/events/archive", "small-event", driver)
 
     events = ph.parse_EventArchive(hltvSoup)
@@ -95,7 +95,7 @@ def scrapeRecentEvents(driver):
 
     print("Done.")
 
-def scrapeHistoricEvents(driver):
+def scrapeHistoricEvents(driver = None):
 
     stopDate = datetime(2023, 10, 16)
     loop = True
@@ -125,7 +125,7 @@ def scrapeHistoricEvents(driver):
 
     print("Done.")
 
-def scrapeAttendingTeams(driver):
+def scrapeAttendingTeams(driver = None):
     events = db.getHighValueEvents()
 
     for event in events:
@@ -143,7 +143,7 @@ def scrapeAttendingTeams(driver):
         
     print("Done.")
 
-def scrapeEventResults(driver):
+def scrapeEventResults(driver = None):
     resultsPages = db.getResultsPages()
 
     for resultsPage in resultsPages:
@@ -153,7 +153,7 @@ def scrapeEventResults(driver):
 
         db.insertMatch(resultsPage["eventid"], results)
 
-def scrapeMatchData(driver):
+def scrapeMatchData(driver = None):
     # get match URLs
     matchURLs = db.getMatchPages()
 

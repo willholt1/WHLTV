@@ -73,6 +73,7 @@ def parse_EventPage_GetAttendingTeams(soup):
 
 def parse_Rankings(soup):
     print("Parsing rankings...")
+    
     teams = []
     for team_div in soup.select('.ranked-team'):
         try:
