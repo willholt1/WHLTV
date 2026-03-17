@@ -2,12 +2,15 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 16.9 (Debian 16.9-1.pgdg120+1)
--- Dumped by pg_dump version 16.9 (Debian 16.9-1.pgdg120+1)
+\restrict WXeGIbLEp8nQbEpY15Nxda4Ei3wvnBcmc3vLoLNYoJsqXbgnjWiIrJK0SP9SQyY
+
+-- Dumped from database version 18.2
+-- Dumped by pg_dump version 18.3 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
 SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
 SET client_encoding = 'UTF8';
 SET standard_conforming_strings = on;
 SELECT pg_catalog.set_config('search_path', '', false);
@@ -17,16 +20,58 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: dbo; Type: SCHEMA; Schema: -; Owner: whltv
+-- Name: dbo; Type: SCHEMA; Schema: -; Owner: -
 --
 
 CREATE SCHEMA dbo;
 
 
-ALTER SCHEMA dbo OWNER TO whltv;
+--
+-- Name: public; Type: SCHEMA; Schema: -; Owner: -
+--
+
+-- *not* creating schema, since initdb creates it
+
 
 --
--- Name: udf_get_high_value_events(); Type: FUNCTION; Schema: dbo; Owner: whltv
+-- Name: udf_get_current_ranking(integer, boolean); Type: FUNCTION; Schema: dbo; Owner: -
+--
+
+CREATE FUNCTION dbo.udf_get_current_ranking(p_top_x integer, p_vrs_ranking boolean) RETURNS TABLE(ranking_date timestamp without time zone, team_name text, rank integer, points integer)
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    v_ranking_date timestamp;
+BEGIN
+
+    SELECT tr.rankingdate
+    INTO v_ranking_date
+    FROM tblteamrankings AS tr
+    ORDER BY tr.rankingdate DESC
+    LIMIT 1;
+
+    if p_vrs_ranking = True THEN
+        RETURN QUERY
+        SELECT tr.rankingdate, tt.teamname, tr.vrsrank, tr.vrspoints
+        FROM tblteamrankings AS tr
+        INNER JOIN tblteams AS tt ON tt.teamid = tr.teamid
+        WHERE tr.rankingdate = v_ranking_date
+        LIMIT (p_top_x);
+    ELSE
+        RETURN QUERY
+        SELECT tr.rankingdate, tt.teamname, tr.hltvrank, tr.hltvpoints
+        FROM tblteamrankings AS tr
+        INNER JOIN tblteams AS tt ON tt.teamid = tr.teamid
+        WHERE tr.rankingdate = v_ranking_date
+        LIMIT (p_top_x);
+    END IF;
+
+END;
+$$;
+
+
+--
+-- Name: udf_get_high_value_events(); Type: FUNCTION; Schema: dbo; Owner: -
 --
 
 CREATE FUNCTION dbo.udf_get_high_value_events() RETURNS TABLE(eventid integer, hltvurl text)
@@ -58,10 +103,8 @@ END;
 $_$;
 
 
-ALTER FUNCTION dbo.udf_get_high_value_events() OWNER TO whltv;
-
 --
--- Name: udf_get_match_pages(); Type: FUNCTION; Schema: dbo; Owner: whltv
+-- Name: udf_get_match_pages(); Type: FUNCTION; Schema: dbo; Owner: -
 --
 
 CREATE FUNCTION dbo.udf_get_match_pages() RETURNS TABLE(matchid integer, hltvmatchpageurl text)
@@ -78,55 +121,49 @@ END;
 $$;
 
 
-ALTER FUNCTION dbo.udf_get_match_pages() OWNER TO whltv;
-
 --
--- Name: udf_get_match_players(integer); Type: FUNCTION; Schema: dbo; Owner: whltv
+-- Name: udf_get_match_players(integer); Type: FUNCTION; Schema: dbo; Owner: -
 --
 
 CREATE FUNCTION dbo.udf_get_match_players(p_matchid integer) RETURNS TABLE(teamid integer, teamname text, playerid integer, alias text, steamid text)
     LANGUAGE plpgsql
-    AS $$
-BEGIN
-    RETURN QUERY
-
-    SELECT mp.teamid, t.teamname, p.playerid, p.alias, p.steamid
-    FROM tblmatchplayers mp
-    INNER JOIN tblplayers p on p.playerid = mp.playerid
-    INNER JOIN tblteams t on t.teamid = mp.teamid
-    WHERE matchid = p_matchid
-    ORDER BY t.teamid, p.playerid;
-END;
+    AS $$
+BEGIN
+    RETURN QUERY
+
+    SELECT mp.teamid, t.teamname, p.playerid, p.alias, p.steamid
+    FROM tblmatchplayers mp
+    INNER JOIN tblplayers p on p.playerid = mp.playerid
+    INNER JOIN tblteams t on t.teamid = mp.teamid
+    WHERE matchid = p_matchid
+    ORDER BY t.teamid, p.playerid;
+END;
 $$;
 
 
-ALTER FUNCTION dbo.udf_get_match_players(p_matchid integer) OWNER TO whltv;
-
 --
--- Name: udf_get_results_pages(); Type: FUNCTION; Schema: dbo; Owner: whltv
+-- Name: udf_get_results_pages(); Type: FUNCTION; Schema: dbo; Owner: -
 --
 
 CREATE FUNCTION dbo.udf_get_results_pages() RETURNS TABLE(eventid integer, hltvresultspageurl text)
     LANGUAGE plpgsql
-    AS $_$
-BEGIN
-    RETURN QUERY
-
-    SELECT te.eventid
-        , 'https://www.hltv.org/results?event=' ||
-        regexp_replace(te.hltvurl, '^https://www\.hltv\.org/events/([0-9]+).*$', '\1')
-        AS HLTVResultsPageURL
-    FROM tblevents te
-    WHERE te.downloadevent = true
-    AND NOT exists(SELECT 1 FROM tblmatches tm WHERE tm.eventid = te.eventid);
-END;
+    AS $_$
+BEGIN
+    RETURN QUERY
+
+    SELECT te.eventid
+        , 'https://www.hltv.org/results?event=' ||
+        regexp_replace(te.hltvurl, '^https://www\.hltv\.org/events/([0-9]+).*$', '\1')
+        AS HLTVResultsPageURL
+    FROM dbo.tblevents te
+    WHERE te.downloadevent = true
+    AND NOT exists(SELECT 1 FROM dbo.tblmatches tm WHERE tm.eventid = te.eventid);
+END;
 $_$;
 
 
-ALTER FUNCTION dbo.udf_get_results_pages() OWNER TO whltv;
-
 --
--- Name: udf_insert_match_playerdata(jsonb, integer); Type: FUNCTION; Schema: dbo; Owner: whltv
+-- Name: udf_insert_match_playerdata(jsonb, integer); Type: FUNCTION; Schema: dbo; Owner: -
 --
 
 CREATE FUNCTION dbo.udf_insert_match_playerdata(p_payload jsonb, p_matchid integer) RETURNS void
@@ -199,51 +236,47 @@ BEGIN
 END $$;
 
 
-ALTER FUNCTION dbo.udf_insert_match_playerdata(p_payload jsonb, p_matchid integer) OWNER TO whltv;
-
 --
--- Name: udf_insert_match_veto(jsonb, integer); Type: FUNCTION; Schema: dbo; Owner: whltv
+-- Name: udf_insert_match_veto(jsonb, integer); Type: FUNCTION; Schema: dbo; Owner: -
 --
 
 CREATE FUNCTION dbo.udf_insert_match_veto(p_payload jsonb, p_matchid integer) RETURNS void
     LANGUAGE plpgsql
-    AS $$
-DECLARE
-BEGIN
-    DELETE FROM dbo.tblmatchveto mv WHERE mv.matchid = p_matchid;
-
-    WITH payload AS (SELECT p_payload AS j),
-    ins AS (
-        INSERT INTO dbo.tblmatchveto
-          (matchid, stepnumber, teamid, vetoactionid, mapid)
-        SELECT
-            p_matchid,
-            (e.elem->>'stepNumber')::int,
-            tt.teamid,
-            (e.elem->>'vetoActionID')::int,
-            (e.elem->>'mapID')::int
-        FROM payload p
-        CROSS JOIN LATERAL jsonb_array_elements(p.j->'matchVeto') AS e(elem)
-        LEFT JOIN tblteams tt on tt.teamname = e.elem->>'teamName'
-        ORDER BY (e.elem->>'stepNumber')::int
-
-        RETURNING 1
-    )
-    INSERT INTO dbo.tblmatchmaps (matchid, mapid)
-    SELECT DISTINCT
-        p_matchid,
-        (e.elem->>'mapID')::int
-    FROM payload p
-    CROSS JOIN LATERAL jsonb_array_elements(p.j->'matchVeto') AS e(elem)
-    WHERE (e.elem->>'vetoActionID')::int IN (1,3)  -- picks + leftover
-    AND NOT EXISTS(SELECT 1 FROM tblmatchmaps mm WHERE mm.matchid = p_matchid and mm.mapid = (e.elem->>'mapID')::int);
+    AS $$
+DECLARE
+BEGIN
+    DELETE FROM dbo.tblmatchveto mv WHERE mv.matchid = p_matchid;
+
+    WITH payload AS (SELECT p_payload AS j),
+    ins AS (
+        INSERT INTO dbo.tblmatchveto
+          (matchid, stepnumber, teamid, vetoactionid, mapid)
+        SELECT
+            p_matchid,
+            (e.elem->>'stepNumber')::int,
+            tt.teamid,
+            (e.elem->>'vetoActionID')::int,
+            (e.elem->>'mapID')::int
+        FROM payload p
+        CROSS JOIN LATERAL jsonb_array_elements(p.j->'matchVeto') AS e(elem)
+        LEFT JOIN tblteams tt on tt.teamname = e.elem->>'teamName'
+        ORDER BY (e.elem->>'stepNumber')::int
+
+        RETURNING 1
+    )
+    INSERT INTO dbo.tblmatchmaps (matchid, mapid)
+    SELECT DISTINCT
+        p_matchid,
+        (e.elem->>'mapID')::int
+    FROM payload p
+    CROSS JOIN LATERAL jsonb_array_elements(p.j->'matchVeto') AS e(elem)
+    WHERE (e.elem->>'vetoActionID')::int IN (1,3)  -- picks + leftover
+    AND NOT EXISTS(SELECT 1 FROM tblmatchmaps mm WHERE mm.matchid = p_matchid and mm.mapid = (e.elem->>'mapID')::int);
 END $$;
 
 
-ALTER FUNCTION dbo.udf_insert_match_veto(p_payload jsonb, p_matchid integer) OWNER TO whltv;
-
 --
--- Name: udf_insert_matchpage_match_data(jsonb, integer); Type: FUNCTION; Schema: dbo; Owner: whltv
+-- Name: udf_insert_matchpage_match_data(jsonb, integer); Type: FUNCTION; Schema: dbo; Owner: -
 --
 
 CREATE FUNCTION dbo.udf_insert_matchpage_match_data(p_payload jsonb, p_matchid integer) RETURNS void
@@ -257,55 +290,51 @@ CREATE FUNCTION dbo.udf_insert_matchpage_match_data(p_payload jsonb, p_matchid i
 $$;
 
 
-ALTER FUNCTION dbo.udf_insert_matchpage_match_data(p_payload jsonb, p_matchid integer) OWNER TO whltv;
-
 --
--- Name: usp_insert_event(text, text, timestamp with time zone, timestamp with time zone, text, text, text); Type: PROCEDURE; Schema: dbo; Owner: whltv
+-- Name: usp_insert_event(text, text, timestamp with time zone, timestamp with time zone, text, text, text); Type: PROCEDURE; Schema: dbo; Owner: -
 --
 
 CREATE PROCEDURE dbo.usp_insert_event(IN p_eventname text, IN p_prizepool text, IN p_startdate timestamp with time zone, IN p_enddate timestamp with time zone, IN p_eventtypename text, IN p_locationname text, IN p_hltvurl text)
     LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_eventTypeID INT;
-    v_locationID INT;
-BEGIN
-    -- Upsert EventType
-    INSERT INTO dbo.tblEventTypes(EventTypeName)
-    VALUES (p_eventTypeName)
-    ON CONFLICT (EventTypeName) DO NOTHING;
-
-    SELECT EventTypeID INTO v_eventTypeID
-    FROM dbo.tblEventTypes
-    WHERE EventTypeName = p_eventTypeName;
-
-    -- Upsert Location
-    INSERT INTO dbo.tblLocations(LocationName)
-    VALUES (p_locationName)
-    ON CONFLICT (LocationName) DO NOTHING;
-
-    SELECT LocationID INTO v_locationID
-    FROM dbo.tblLocations
-    WHERE LocationName = p_locationName;
-
-    -- Insert Event (skip if already exists via URL)
-    INSERT INTO dbo.tblEvents (
-        EventName, PrizePool, StartDate, EndDate,
-        EventTypeID, LocationID, HLTVUrl
-    )
-    VALUES (
-        p_eventName, p_prizePool, p_startDate, p_endDate,
-        v_eventTypeID, v_locationID, p_hltvUrl
-    )
-    ON CONFLICT (HLTVUrl) DO NOTHING;
-END;
+    AS $$
+DECLARE
+    v_eventTypeID INT;
+    v_locationID INT;
+BEGIN
+    -- Upsert EventType
+    INSERT INTO dbo.tblEventTypes(EventTypeName)
+    VALUES (p_eventTypeName)
+    ON CONFLICT (EventTypeName) DO NOTHING;
+
+    SELECT EventTypeID INTO v_eventTypeID
+    FROM dbo.tblEventTypes
+    WHERE EventTypeName = p_eventTypeName;
+
+    -- Upsert Location
+    INSERT INTO dbo.tblLocations(LocationName)
+    VALUES (p_locationName)
+    ON CONFLICT (LocationName) DO NOTHING;
+
+    SELECT LocationID INTO v_locationID
+    FROM dbo.tblLocations
+    WHERE LocationName = p_locationName;
+
+    -- Insert Event (skip if already exists via URL)
+    INSERT INTO dbo.tblEvents (
+        EventName, PrizePool, StartDate, EndDate,
+        EventTypeID, LocationID, HLTVUrl
+    )
+    VALUES (
+        p_eventName, p_prizePool, p_startDate, p_endDate,
+        v_eventTypeID, v_locationID, p_hltvUrl
+    )
+    ON CONFLICT (HLTVUrl) DO NOTHING;
+END;
 $$;
 
 
-ALTER PROCEDURE dbo.usp_insert_event(IN p_eventname text, IN p_prizepool text, IN p_startdate timestamp with time zone, IN p_enddate timestamp with time zone, IN p_eventtypename text, IN p_locationname text, IN p_hltvurl text) OWNER TO whltv;
-
 --
--- Name: usp_insert_event_teams(integer, text[]); Type: PROCEDURE; Schema: dbo; Owner: whltv
+-- Name: usp_insert_event_teams(integer, text[]); Type: PROCEDURE; Schema: dbo; Owner: -
 --
 
 CREATE PROCEDURE dbo.usp_insert_event_teams(IN p_eventid integer, IN p_teams text[])
@@ -346,102 +375,94 @@ END;
 $$;
 
 
-ALTER PROCEDURE dbo.usp_insert_event_teams(IN p_eventid integer, IN p_teams text[]) OWNER TO whltv;
-
 --
--- Name: usp_insert_match(integer, text, text, text, integer); Type: PROCEDURE; Schema: dbo; Owner: whltv
+-- Name: usp_insert_match(integer, text, text, text, integer); Type: PROCEDURE; Schema: dbo; Owner: -
 --
 
 CREATE PROCEDURE dbo.usp_insert_match(IN p_eventid integer, IN p_team1name text, IN p_team2name text, IN p_hltmatchurl text, IN p_bestof integer)
     LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_team1ID INT;
-    v_team2ID INT;
-BEGIN
-
-    -- Insert team if it somehow doesn't exist yet
-    INSERT INTO dbo.tblTeams (teamname)
-    VALUES (p_team1Name), (p_team2Name)
-    ON CONFLICT (TeamName) DO NOTHING;
-
-    -- Get team IDs
-    SELECT TeamID INTO v_team1ID
-    FROM dbo.tblTeams
-    WHERE TeamName = p_team1Name;
-
-    SELECT TeamID INTO v_team2ID
-    FROM dbo.tblTeams
-    WHERE TeamName = p_team2Name;
-
-    INSERT INTO dbo.tblmatches
-    (eventid, team1id, team2id, bestof, hltvmatchpageurl)
-    VALUES
-    (p_eventid, v_team1ID, v_team2ID, p_bestOf, p_hltMatchURL);
-
-END;
+    AS $$
+DECLARE
+    v_team1ID INT;
+    v_team2ID INT;
+BEGIN
+
+    -- Insert team if it somehow doesn't exist yet
+    INSERT INTO dbo.tblTeams (teamname)
+    VALUES (p_team1Name), (p_team2Name)
+    ON CONFLICT (TeamName) DO NOTHING;
+
+    -- Get team IDs
+    SELECT TeamID INTO v_team1ID
+    FROM dbo.tblTeams
+    WHERE TeamName = p_team1Name;
+
+    SELECT TeamID INTO v_team2ID
+    FROM dbo.tblTeams
+    WHERE TeamName = p_team2Name;
+
+    INSERT INTO dbo.tblmatches
+    (eventid, team1id, team2id, bestof, hltvmatchpageurl)
+    VALUES
+    (p_eventid, v_team1ID, v_team2ID, p_bestOf, p_hltMatchURL);
+
+END;
 $$;
 
 
-ALTER PROCEDURE dbo.usp_insert_match(IN p_eventid integer, IN p_team1name text, IN p_team2name text, IN p_hltmatchurl text, IN p_bestof integer) OWNER TO whltv;
-
 --
--- Name: usp_insert_matchpage_data_from_json(jsonb); Type: PROCEDURE; Schema: dbo; Owner: whltv
+-- Name: usp_insert_matchpage_data_from_json(jsonb); Type: PROCEDURE; Schema: dbo; Owner: -
 --
 
 CREATE PROCEDURE dbo.usp_insert_matchpage_data_from_json(IN p_payload jsonb)
     LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_match_id int := (p_payload->>'matchID')::int;
-BEGIN
-
-    PERFORM dbo.udf_insert_matchpage_match_data(p_payload, v_match_id);  
-    PERFORM dbo.udf_insert_match_veto(p_payload, v_match_id);    
-    PERFORM dbo.udf_insert_match_playerdata(p_payload, v_match_id);
-
-EXCEPTION WHEN OTHERS THEN
-    RAISE;
+    AS $$
+DECLARE
+    v_match_id int := (p_payload->>'matchID')::int;
+BEGIN
+
+    PERFORM dbo.udf_insert_matchpage_match_data(p_payload, v_match_id);  
+    PERFORM dbo.udf_insert_match_veto(p_payload, v_match_id);    
+    PERFORM dbo.udf_insert_match_playerdata(p_payload, v_match_id);
+
+EXCEPTION WHEN OTHERS THEN
+    RAISE;
 END $$;
 
 
-ALTER PROCEDURE dbo.usp_insert_matchpage_data_from_json(IN p_payload jsonb) OWNER TO whltv;
-
 --
--- Name: usp_insert_team_ranking(text, integer, integer, integer, integer, timestamp without time zone); Type: PROCEDURE; Schema: dbo; Owner: whltv
+-- Name: usp_insert_team_ranking(text, integer, integer, integer, integer, timestamp without time zone); Type: PROCEDURE; Schema: dbo; Owner: -
 --
 
 CREATE PROCEDURE dbo.usp_insert_team_ranking(IN p_teamname text, IN p_hltvpoints integer, IN p_hltvrank integer, IN p_vrspoints integer, IN p_vrsrank integer, IN p_rankingdate timestamp without time zone DEFAULT NULL::timestamp without time zone)
     LANGUAGE plpgsql
-    AS $$
-DECLARE
-    v_teamID INTEGER;
-    v_rankingDate TIMESTAMP;
-BEGIN
-    -- current timestamp if null date
-    v_rankingDate := COALESCE(p_rankingDate, CURRENT_TIMESTAMP);
-
-    -- Insert team if it doesn't exist
-    INSERT INTO dbo.tblTeams (TeamName)
-    VALUES (p_teamName)
-    ON CONFLICT (TeamName) DO NOTHING;
-
-    -- Get team ID
-    SELECT TeamID INTO v_teamID
-    FROM dbo.tblTeams
-    WHERE TeamName = p_teamName;
-
-    -- Insert team ranking snapshot
-    INSERT INTO dbo.tblTeamRankings (TeamID, HLTVPoints, HLTVRank, VRSPoints, VRSRank, RankingDate)
-    VALUES (v_teamID, p_HLTVPoints, p_HLTVRank, p_VRSPoints, p_VRSRank, v_rankingDate);
-END;
+    AS $$
+DECLARE
+    v_teamID INTEGER;
+    v_rankingDate TIMESTAMP;
+BEGIN
+    -- current timestamp if null date
+    v_rankingDate := COALESCE(p_rankingDate, CURRENT_TIMESTAMP);
+
+    -- Insert team if it doesn't exist
+    INSERT INTO dbo.tblTeams (TeamName)
+    VALUES (p_teamName)
+    ON CONFLICT (TeamName) DO NOTHING;
+
+    -- Get team ID
+    SELECT TeamID INTO v_teamID
+    FROM dbo.tblTeams
+    WHERE TeamName = p_teamName;
+
+    -- Insert team ranking snapshot
+    INSERT INTO dbo.tblTeamRankings (TeamID, HLTVPoints, HLTVRank, VRSPoints, VRSRank, RankingDate)
+    VALUES (v_teamID, p_HLTVPoints, p_HLTVRank, p_VRSPoints, p_VRSRank, v_rankingDate);
+END;
 $$;
 
 
-ALTER PROCEDURE dbo.usp_insert_team_ranking(IN p_teamname text, IN p_hltvpoints integer, IN p_hltvrank integer, IN p_vrspoints integer, IN p_vrsrank integer, IN p_rankingdate timestamp without time zone) OWNER TO whltv;
-
 --
--- Name: usp_mark_events_for_download(); Type: PROCEDURE; Schema: dbo; Owner: whltv
+-- Name: usp_mark_events_for_download(); Type: PROCEDURE; Schema: dbo; Owner: -
 --
 
 CREATE PROCEDURE dbo.usp_mark_events_for_download()
@@ -472,14 +493,12 @@ END;
 $$;
 
 
-ALTER PROCEDURE dbo.usp_mark_events_for_download() OWNER TO whltv;
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: tbldemos; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tbldemos; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tbldemos (
@@ -488,10 +507,8 @@ CREATE TABLE dbo.tbldemos (
 );
 
 
-ALTER TABLE dbo.tbldemos OWNER TO whltv;
-
 --
--- Name: tbldemos_demoid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+-- Name: tbldemos_demoid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
 CREATE SEQUENCE dbo.tbldemos_demoid_seq
@@ -503,17 +520,15 @@ CREATE SEQUENCE dbo.tbldemos_demoid_seq
     CACHE 1;
 
 
-ALTER SEQUENCE dbo.tbldemos_demoid_seq OWNER TO whltv;
-
 --
--- Name: tbldemos_demoid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+-- Name: tbldemos_demoid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
 ALTER SEQUENCE dbo.tbldemos_demoid_seq OWNED BY dbo.tbldemos.demoid;
 
 
 --
--- Name: tblevents; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tblevents; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tblevents (
@@ -529,10 +544,8 @@ CREATE TABLE dbo.tblevents (
 );
 
 
-ALTER TABLE dbo.tblevents OWNER TO whltv;
-
 --
--- Name: tblevents_eventid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+-- Name: tblevents_eventid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
 CREATE SEQUENCE dbo.tblevents_eventid_seq
@@ -544,17 +557,15 @@ CREATE SEQUENCE dbo.tblevents_eventid_seq
     CACHE 1;
 
 
-ALTER SEQUENCE dbo.tblevents_eventid_seq OWNER TO whltv;
-
 --
--- Name: tblevents_eventid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+-- Name: tblevents_eventid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
 ALTER SEQUENCE dbo.tblevents_eventid_seq OWNED BY dbo.tblevents.eventid;
 
 
 --
--- Name: tbleventteams; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tbleventteams; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tbleventteams (
@@ -564,10 +575,8 @@ CREATE TABLE dbo.tbleventteams (
 );
 
 
-ALTER TABLE dbo.tbleventteams OWNER TO whltv;
-
 --
--- Name: tbleventteams_eventteamid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+-- Name: tbleventteams_eventteamid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
 CREATE SEQUENCE dbo.tbleventteams_eventteamid_seq
@@ -579,17 +588,15 @@ CREATE SEQUENCE dbo.tbleventteams_eventteamid_seq
     CACHE 1;
 
 
-ALTER SEQUENCE dbo.tbleventteams_eventteamid_seq OWNER TO whltv;
-
 --
--- Name: tbleventteams_eventteamid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+-- Name: tbleventteams_eventteamid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
 ALTER SEQUENCE dbo.tbleventteams_eventteamid_seq OWNED BY dbo.tbleventteams.eventteamid;
 
 
 --
--- Name: tbleventtypes; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tbleventtypes; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tbleventtypes (
@@ -598,10 +605,8 @@ CREATE TABLE dbo.tbleventtypes (
 );
 
 
-ALTER TABLE dbo.tbleventtypes OWNER TO whltv;
-
 --
--- Name: tbleventtypes_eventtypeid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+-- Name: tbleventtypes_eventtypeid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
 CREATE SEQUENCE dbo.tbleventtypes_eventtypeid_seq
@@ -613,17 +618,15 @@ CREATE SEQUENCE dbo.tbleventtypes_eventtypeid_seq
     CACHE 1;
 
 
-ALTER SEQUENCE dbo.tbleventtypes_eventtypeid_seq OWNER TO whltv;
-
 --
--- Name: tbleventtypes_eventtypeid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+-- Name: tbleventtypes_eventtypeid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
 ALTER SEQUENCE dbo.tbleventtypes_eventtypeid_seq OWNED BY dbo.tbleventtypes.eventtypeid;
 
 
 --
--- Name: tblhltvplayerstats; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tblhltvplayerstats; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tblhltvplayerstats (
@@ -640,10 +643,8 @@ CREATE TABLE dbo.tblhltvplayerstats (
 );
 
 
-ALTER TABLE dbo.tblhltvplayerstats OWNER TO whltv;
-
 --
--- Name: tblhltvplayerstats_hltvplayerstatsid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+-- Name: tblhltvplayerstats_hltvplayerstatsid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
 CREATE SEQUENCE dbo.tblhltvplayerstats_hltvplayerstatsid_seq
@@ -655,17 +656,15 @@ CREATE SEQUENCE dbo.tblhltvplayerstats_hltvplayerstatsid_seq
     CACHE 1;
 
 
-ALTER SEQUENCE dbo.tblhltvplayerstats_hltvplayerstatsid_seq OWNER TO whltv;
-
 --
--- Name: tblhltvplayerstats_hltvplayerstatsid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+-- Name: tblhltvplayerstats_hltvplayerstatsid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
 ALTER SEQUENCE dbo.tblhltvplayerstats_hltvplayerstatsid_seq OWNED BY dbo.tblhltvplayerstats.hltvplayerstatsid;
 
 
 --
--- Name: tbllocations; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tbllocations; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tbllocations (
@@ -674,10 +673,8 @@ CREATE TABLE dbo.tbllocations (
 );
 
 
-ALTER TABLE dbo.tbllocations OWNER TO whltv;
-
 --
--- Name: tbllocations_locationid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+-- Name: tbllocations_locationid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
 CREATE SEQUENCE dbo.tbllocations_locationid_seq
@@ -689,17 +686,15 @@ CREATE SEQUENCE dbo.tbllocations_locationid_seq
     CACHE 1;
 
 
-ALTER SEQUENCE dbo.tbllocations_locationid_seq OWNER TO whltv;
-
 --
--- Name: tbllocations_locationid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+-- Name: tbllocations_locationid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
 ALTER SEQUENCE dbo.tbllocations_locationid_seq OWNED BY dbo.tbllocations.locationid;
 
 
 --
--- Name: tblmaps; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tblmaps; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tblmaps (
@@ -708,10 +703,8 @@ CREATE TABLE dbo.tblmaps (
 );
 
 
-ALTER TABLE dbo.tblmaps OWNER TO whltv;
-
 --
--- Name: tblmaps_mapid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+-- Name: tblmaps_mapid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
 CREATE SEQUENCE dbo.tblmaps_mapid_seq
@@ -723,17 +716,15 @@ CREATE SEQUENCE dbo.tblmaps_mapid_seq
     CACHE 1;
 
 
-ALTER SEQUENCE dbo.tblmaps_mapid_seq OWNER TO whltv;
-
 --
--- Name: tblmaps_mapid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+-- Name: tblmaps_mapid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
 ALTER SEQUENCE dbo.tblmaps_mapid_seq OWNED BY dbo.tblmaps.mapid;
 
 
 --
--- Name: tblmatches; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tblmatches; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tblmatches (
@@ -749,10 +740,8 @@ CREATE TABLE dbo.tblmatches (
 );
 
 
-ALTER TABLE dbo.tblmatches OWNER TO whltv;
-
 --
--- Name: tblmatches_matchid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+-- Name: tblmatches_matchid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
 CREATE SEQUENCE dbo.tblmatches_matchid_seq
@@ -764,17 +753,15 @@ CREATE SEQUENCE dbo.tblmatches_matchid_seq
     CACHE 1;
 
 
-ALTER SEQUENCE dbo.tblmatches_matchid_seq OWNER TO whltv;
-
 --
--- Name: tblmatches_matchid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+-- Name: tblmatches_matchid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
 ALTER SEQUENCE dbo.tblmatches_matchid_seq OWNED BY dbo.tblmatches.matchid;
 
 
 --
--- Name: tblmatchmapdemos; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tblmatchmapdemos; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tblmatchmapdemos (
@@ -783,10 +770,8 @@ CREATE TABLE dbo.tblmatchmapdemos (
 );
 
 
-ALTER TABLE dbo.tblmatchmapdemos OWNER TO whltv;
-
 --
--- Name: tblmatchmaps; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tblmatchmaps; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tblmatchmaps (
@@ -798,10 +783,8 @@ CREATE TABLE dbo.tblmatchmaps (
 );
 
 
-ALTER TABLE dbo.tblmatchmaps OWNER TO whltv;
-
 --
--- Name: tblmatchmaps_matchmapid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+-- Name: tblmatchmaps_matchmapid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
 CREATE SEQUENCE dbo.tblmatchmaps_matchmapid_seq
@@ -813,17 +796,15 @@ CREATE SEQUENCE dbo.tblmatchmaps_matchmapid_seq
     CACHE 1;
 
 
-ALTER SEQUENCE dbo.tblmatchmaps_matchmapid_seq OWNER TO whltv;
-
 --
--- Name: tblmatchmaps_matchmapid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+-- Name: tblmatchmaps_matchmapid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
 ALTER SEQUENCE dbo.tblmatchmaps_matchmapid_seq OWNED BY dbo.tblmatchmaps.matchmapid;
 
 
 --
--- Name: tblmatchplayers; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tblmatchplayers; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tblmatchplayers (
@@ -833,10 +814,8 @@ CREATE TABLE dbo.tblmatchplayers (
 );
 
 
-ALTER TABLE dbo.tblmatchplayers OWNER TO whltv;
-
 --
--- Name: tblmatchveto; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tblmatchveto; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tblmatchveto (
@@ -849,10 +828,8 @@ CREATE TABLE dbo.tblmatchveto (
 );
 
 
-ALTER TABLE dbo.tblmatchveto OWNER TO whltv;
-
 --
--- Name: tblmatchveto_matchvetoid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+-- Name: tblmatchveto_matchvetoid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
 CREATE SEQUENCE dbo.tblmatchveto_matchvetoid_seq
@@ -864,17 +841,15 @@ CREATE SEQUENCE dbo.tblmatchveto_matchvetoid_seq
     CACHE 1;
 
 
-ALTER SEQUENCE dbo.tblmatchveto_matchvetoid_seq OWNER TO whltv;
-
 --
--- Name: tblmatchveto_matchvetoid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+-- Name: tblmatchveto_matchvetoid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
 ALTER SEQUENCE dbo.tblmatchveto_matchvetoid_seq OWNED BY dbo.tblmatchveto.matchvetoid;
 
 
 --
--- Name: tblplayers; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tblplayers; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tblplayers (
@@ -885,10 +860,8 @@ CREATE TABLE dbo.tblplayers (
 );
 
 
-ALTER TABLE dbo.tblplayers OWNER TO whltv;
-
 --
--- Name: tblplayers_playerid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+-- Name: tblplayers_playerid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
 CREATE SEQUENCE dbo.tblplayers_playerid_seq
@@ -900,17 +873,15 @@ CREATE SEQUENCE dbo.tblplayers_playerid_seq
     CACHE 1;
 
 
-ALTER SEQUENCE dbo.tblplayers_playerid_seq OWNER TO whltv;
-
 --
--- Name: tblplayers_playerid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+-- Name: tblplayers_playerid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
 ALTER SEQUENCE dbo.tblplayers_playerid_seq OWNED BY dbo.tblplayers.playerid;
 
 
 --
--- Name: tblteamrankings; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tblteamrankings; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tblteamrankings (
@@ -924,10 +895,8 @@ CREATE TABLE dbo.tblteamrankings (
 );
 
 
-ALTER TABLE dbo.tblteamrankings OWNER TO whltv;
-
 --
--- Name: tblteamrankings_teamrankingid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+-- Name: tblteamrankings_teamrankingid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
 CREATE SEQUENCE dbo.tblteamrankings_teamrankingid_seq
@@ -939,17 +908,15 @@ CREATE SEQUENCE dbo.tblteamrankings_teamrankingid_seq
     CACHE 1;
 
 
-ALTER SEQUENCE dbo.tblteamrankings_teamrankingid_seq OWNER TO whltv;
-
 --
--- Name: tblteamrankings_teamrankingid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+-- Name: tblteamrankings_teamrankingid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
 ALTER SEQUENCE dbo.tblteamrankings_teamrankingid_seq OWNED BY dbo.tblteamrankings.teamrankingid;
 
 
 --
--- Name: tblteams; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tblteams; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tblteams (
@@ -958,10 +925,8 @@ CREATE TABLE dbo.tblteams (
 );
 
 
-ALTER TABLE dbo.tblteams OWNER TO whltv;
-
 --
--- Name: tblteams_teamid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+-- Name: tblteams_teamid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
 CREATE SEQUENCE dbo.tblteams_teamid_seq
@@ -973,17 +938,15 @@ CREATE SEQUENCE dbo.tblteams_teamid_seq
     CACHE 1;
 
 
-ALTER SEQUENCE dbo.tblteams_teamid_seq OWNER TO whltv;
-
 --
--- Name: tblteams_teamid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+-- Name: tblteams_teamid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
 ALTER SEQUENCE dbo.tblteams_teamid_seq OWNED BY dbo.tblteams.teamid;
 
 
 --
--- Name: tblvetoactions; Type: TABLE; Schema: dbo; Owner: whltv
+-- Name: tblvetoactions; Type: TABLE; Schema: dbo; Owner: -
 --
 
 CREATE TABLE dbo.tblvetoactions (
@@ -992,10 +955,8 @@ CREATE TABLE dbo.tblvetoactions (
 );
 
 
-ALTER TABLE dbo.tblvetoactions OWNER TO whltv;
-
 --
--- Name: tblvetoactions_vetoactionid_seq; Type: SEQUENCE; Schema: dbo; Owner: whltv
+-- Name: tblvetoactions_vetoactionid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
 CREATE SEQUENCE dbo.tblvetoactions_vetoactionid_seq
@@ -1007,115 +968,113 @@ CREATE SEQUENCE dbo.tblvetoactions_vetoactionid_seq
     CACHE 1;
 
 
-ALTER SEQUENCE dbo.tblvetoactions_vetoactionid_seq OWNER TO whltv;
-
 --
--- Name: tblvetoactions_vetoactionid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: whltv
+-- Name: tblvetoactions_vetoactionid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
 ALTER SEQUENCE dbo.tblvetoactions_vetoactionid_seq OWNED BY dbo.tblvetoactions.vetoactionid;
 
 
 --
--- Name: tbldemos demoid; Type: DEFAULT; Schema: dbo; Owner: whltv
+-- Name: tbldemos demoid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tbldemos ALTER COLUMN demoid SET DEFAULT nextval('dbo.tbldemos_demoid_seq'::regclass);
 
 
 --
--- Name: tblevents eventid; Type: DEFAULT; Schema: dbo; Owner: whltv
+-- Name: tblevents eventid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblevents ALTER COLUMN eventid SET DEFAULT nextval('dbo.tblevents_eventid_seq'::regclass);
 
 
 --
--- Name: tbleventteams eventteamid; Type: DEFAULT; Schema: dbo; Owner: whltv
+-- Name: tbleventteams eventteamid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tbleventteams ALTER COLUMN eventteamid SET DEFAULT nextval('dbo.tbleventteams_eventteamid_seq'::regclass);
 
 
 --
--- Name: tbleventtypes eventtypeid; Type: DEFAULT; Schema: dbo; Owner: whltv
+-- Name: tbleventtypes eventtypeid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tbleventtypes ALTER COLUMN eventtypeid SET DEFAULT nextval('dbo.tbleventtypes_eventtypeid_seq'::regclass);
 
 
 --
--- Name: tblhltvplayerstats hltvplayerstatsid; Type: DEFAULT; Schema: dbo; Owner: whltv
+-- Name: tblhltvplayerstats hltvplayerstatsid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblhltvplayerstats ALTER COLUMN hltvplayerstatsid SET DEFAULT nextval('dbo.tblhltvplayerstats_hltvplayerstatsid_seq'::regclass);
 
 
 --
--- Name: tbllocations locationid; Type: DEFAULT; Schema: dbo; Owner: whltv
+-- Name: tbllocations locationid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tbllocations ALTER COLUMN locationid SET DEFAULT nextval('dbo.tbllocations_locationid_seq'::regclass);
 
 
 --
--- Name: tblmaps mapid; Type: DEFAULT; Schema: dbo; Owner: whltv
+-- Name: tblmaps mapid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblmaps ALTER COLUMN mapid SET DEFAULT nextval('dbo.tblmaps_mapid_seq'::regclass);
 
 
 --
--- Name: tblmatches matchid; Type: DEFAULT; Schema: dbo; Owner: whltv
+-- Name: tblmatches matchid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblmatches ALTER COLUMN matchid SET DEFAULT nextval('dbo.tblmatches_matchid_seq'::regclass);
 
 
 --
--- Name: tblmatchmaps matchmapid; Type: DEFAULT; Schema: dbo; Owner: whltv
+-- Name: tblmatchmaps matchmapid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblmatchmaps ALTER COLUMN matchmapid SET DEFAULT nextval('dbo.tblmatchmaps_matchmapid_seq'::regclass);
 
 
 --
--- Name: tblmatchveto matchvetoid; Type: DEFAULT; Schema: dbo; Owner: whltv
+-- Name: tblmatchveto matchvetoid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblmatchveto ALTER COLUMN matchvetoid SET DEFAULT nextval('dbo.tblmatchveto_matchvetoid_seq'::regclass);
 
 
 --
--- Name: tblplayers playerid; Type: DEFAULT; Schema: dbo; Owner: whltv
+-- Name: tblplayers playerid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblplayers ALTER COLUMN playerid SET DEFAULT nextval('dbo.tblplayers_playerid_seq'::regclass);
 
 
 --
--- Name: tblteamrankings teamrankingid; Type: DEFAULT; Schema: dbo; Owner: whltv
+-- Name: tblteamrankings teamrankingid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblteamrankings ALTER COLUMN teamrankingid SET DEFAULT nextval('dbo.tblteamrankings_teamrankingid_seq'::regclass);
 
 
 --
--- Name: tblteams teamid; Type: DEFAULT; Schema: dbo; Owner: whltv
+-- Name: tblteams teamid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblteams ALTER COLUMN teamid SET DEFAULT nextval('dbo.tblteams_teamid_seq'::regclass);
 
 
 --
--- Name: tblvetoactions vetoactionid; Type: DEFAULT; Schema: dbo; Owner: whltv
+-- Name: tblvetoactions vetoactionid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblvetoactions ALTER COLUMN vetoactionid SET DEFAULT nextval('dbo.tblvetoactions_vetoactionid_seq'::regclass);
 
 
 --
--- Name: tbldemos tbldemos_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tbldemos tbldemos_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tbldemos
@@ -1123,7 +1082,7 @@ ALTER TABLE ONLY dbo.tbldemos
 
 
 --
--- Name: tblevents tblevents_hltvurl_key; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblevents tblevents_hltvurl_key; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblevents
@@ -1131,7 +1090,7 @@ ALTER TABLE ONLY dbo.tblevents
 
 
 --
--- Name: tblevents tblevents_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblevents tblevents_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblevents
@@ -1139,7 +1098,7 @@ ALTER TABLE ONLY dbo.tblevents
 
 
 --
--- Name: tbleventteams tbleventteams_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tbleventteams tbleventteams_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tbleventteams
@@ -1147,7 +1106,7 @@ ALTER TABLE ONLY dbo.tbleventteams
 
 
 --
--- Name: tbleventtypes tbleventtypes_eventtypename_key; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tbleventtypes tbleventtypes_eventtypename_key; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tbleventtypes
@@ -1155,7 +1114,7 @@ ALTER TABLE ONLY dbo.tbleventtypes
 
 
 --
--- Name: tbleventtypes tbleventtypes_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tbleventtypes tbleventtypes_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tbleventtypes
@@ -1163,7 +1122,7 @@ ALTER TABLE ONLY dbo.tbleventtypes
 
 
 --
--- Name: tblhltvplayerstats tblhltvplayerstats_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblhltvplayerstats tblhltvplayerstats_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblhltvplayerstats
@@ -1171,7 +1130,7 @@ ALTER TABLE ONLY dbo.tblhltvplayerstats
 
 
 --
--- Name: tbllocations tbllocations_locationname_key; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tbllocations tbllocations_locationname_key; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tbllocations
@@ -1179,7 +1138,7 @@ ALTER TABLE ONLY dbo.tbllocations
 
 
 --
--- Name: tbllocations tbllocations_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tbllocations tbllocations_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tbllocations
@@ -1187,7 +1146,7 @@ ALTER TABLE ONLY dbo.tbllocations
 
 
 --
--- Name: tblmaps tblmaps_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblmaps tblmaps_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblmaps
@@ -1195,7 +1154,7 @@ ALTER TABLE ONLY dbo.tblmaps
 
 
 --
--- Name: tblmatches tblmatches_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblmatches tblmatches_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblmatches
@@ -1203,7 +1162,7 @@ ALTER TABLE ONLY dbo.tblmatches
 
 
 --
--- Name: tblmatchmaps tblmatchmaps_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblmatchmaps tblmatchmaps_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblmatchmaps
@@ -1211,7 +1170,7 @@ ALTER TABLE ONLY dbo.tblmatchmaps
 
 
 --
--- Name: tblmatchveto tblmatchveto_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblmatchveto tblmatchveto_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblmatchveto
@@ -1219,7 +1178,7 @@ ALTER TABLE ONLY dbo.tblmatchveto
 
 
 --
--- Name: tblplayers tblplayers_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblplayers tblplayers_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblplayers
@@ -1227,7 +1186,7 @@ ALTER TABLE ONLY dbo.tblplayers
 
 
 --
--- Name: tblteamrankings tblteamrankings_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblteamrankings tblteamrankings_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblteamrankings
@@ -1235,7 +1194,7 @@ ALTER TABLE ONLY dbo.tblteamrankings
 
 
 --
--- Name: tblteams tblteams_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblteams tblteams_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblteams
@@ -1243,7 +1202,7 @@ ALTER TABLE ONLY dbo.tblteams
 
 
 --
--- Name: tblteams tblteams_teamname_key; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblteams tblteams_teamname_key; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblteams
@@ -1251,7 +1210,7 @@ ALTER TABLE ONLY dbo.tblteams
 
 
 --
--- Name: tblvetoactions tblvetoactions_pkey; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblvetoactions tblvetoactions_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblvetoactions
@@ -1259,7 +1218,7 @@ ALTER TABLE ONLY dbo.tblvetoactions
 
 
 --
--- Name: tblmatchmaps uq_matchmaps_matchid_mapid; Type: CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblmatchmaps uq_matchmaps_matchid_mapid; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblmatchmaps
@@ -1267,7 +1226,7 @@ ALTER TABLE ONLY dbo.tblmatchmaps
 
 
 --
--- Name: tblevents tblevents_eventtypeid_fkey; Type: FK CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblevents tblevents_eventtypeid_fkey; Type: FK CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblevents
@@ -1275,7 +1234,7 @@ ALTER TABLE ONLY dbo.tblevents
 
 
 --
--- Name: tblevents tblevents_locationid_fkey; Type: FK CONSTRAINT; Schema: dbo; Owner: whltv
+-- Name: tblevents tblevents_locationid_fkey; Type: FK CONSTRAINT; Schema: dbo; Owner: -
 --
 
 ALTER TABLE ONLY dbo.tblevents
@@ -1285,4 +1244,6 @@ ALTER TABLE ONLY dbo.tblevents
 --
 -- PostgreSQL database dump complete
 --
+
+\unrestrict WXeGIbLEp8nQbEpY15Nxda4Ei3wvnBcmc3vLoLNYoJsqXbgnjWiIrJK0SP9SQyY
 
