@@ -1,9 +1,30 @@
+using Npgsql;
+using Whltv.Api.Data;
+using Whltv.Api.Services;
+using DotNetEnv;
+
+Env.Load();
+
+var host = Environment.GetEnvironmentVariable("DB_HOST");
+var port = Environment.GetEnvironmentVariable("DB_PORT");
+var db   = Environment.GetEnvironmentVariable("DB_NAME");
+var user = Environment.GetEnvironmentVariable("DB_USER");
+var pass = Environment.GetEnvironmentVariable("DB_PASSWORD");
+
+var connectionString =
+    $"Host={host};Port={port};Database={db};Username={user};Password={pass}";
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
+
+builder.Services.AddNpgsqlDataSource(connectionString);
+
+builder.Services.AddScoped<IRankingRepository, RankingRepository>();
+builder.Services.AddScoped<IRankingService, RankingService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

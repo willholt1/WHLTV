@@ -1,20 +1,28 @@
 using Microsoft.AspNetCore.Mvc;
+using Whltv.Api.Services;
 
-namespace MyApi.Controllers;
+namespace Whltv.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 public class RankingsController : ControllerBase
 {
-    [HttpGet]
-    public IActionResult GetAll()
-    {
-        var matches = new[]
-        {
-            new { Rank = 1, TeamName = "Vitality", Points = 1000},
-            new { Rank = 2, TeamName = "FaZe", Points = 950 }
-        };
+    private readonly IRankingService _rankingService;
 
-        return Ok(matches);
+    public RankingsController(IRankingService rankingService)
+    {
+        _rankingService = rankingService;
+    }
+
+    [HttpGet("current")]
+    public async Task<IActionResult> GetCurrent([FromQuery] int topX, bool vrsRanking, CancellationToken cancellationToken)
+    {
+        if (topX <= 0)
+        {
+            return BadRequest("topX must be greater than 0.");
+        }
+
+        var rankings = await _rankingService.GetCurrentRankingsAsync(topX, vrsRanking, cancellationToken);
+        return Ok(rankings);
     }
 }
