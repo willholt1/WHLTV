@@ -35,3 +35,6 @@ debug_hltv.html
 # Python virtual environments
 .venv/
 venv/
+
+# Misc
+.DS_Store
