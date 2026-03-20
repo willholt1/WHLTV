@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict WXeGIbLEp8nQbEpY15Nxda4Ei3wvnBcmc3vLoLNYoJsqXbgnjWiIrJK0SP9SQyY
+\restrict FYhRmu5ck6fV4wAbEkv2ckxEp7GMVWL1nEJg2L2f4lhIP6G13s8nsUX0TtMPEYb
 
 -- Dumped from database version 18.2
 -- Dumped by pg_dump version 18.3 (Homebrew)
@@ -160,6 +160,27 @@ BEGIN
     AND NOT exists(SELECT 1 FROM dbo.tblmatches tm WHERE tm.eventid = te.eventid);
 END;
 $_$;
+
+
+--
+-- Name: udf_get_teams(); Type: FUNCTION; Schema: dbo; Owner: -
+--
+
+CREATE FUNCTION dbo.udf_get_teams() RETURNS TABLE(team_name text, team_id integer)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+
+    RETURN QUERY
+    SELECT t.teamname, t.teamid
+    FROM tblteamrankings AS tr
+    INNER JOIN dbo.tblteams t ON tr.teamid = t.teamid
+    WHERE hltvrank < 20
+    GROUP BY teamname, t.teamid
+    ORDER BY COUNT(*) DESC;
+
+END;
+$$;
 
 
 --
@@ -1245,5 +1266,5 @@ ALTER TABLE ONLY dbo.tblevents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict WXeGIbLEp8nQbEpY15Nxda4Ei3wvnBcmc3vLoLNYoJsqXbgnjWiIrJK0SP9SQyY
+\unrestrict FYhRmu5ck6fV4wAbEkv2ckxEp7GMVWL1nEJg2L2f4lhIP6G13s8nsUX0TtMPEYb
 
