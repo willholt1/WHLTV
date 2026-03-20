@@ -4,31 +4,27 @@ using Whltv.Api.Contracts.Responses.Database;
 
 namespace Whltv.Api.Data;
 
-public sealed class RankingRepository : IRankingRepository
+public sealed class TeamsRepository : ITeamsRepository
 {
     private readonly NpgsqlDataSource _dataSource;
 
-    public RankingRepository(NpgsqlDataSource dataSource)
+    public TeamsRepository(NpgsqlDataSource dataSource)
     {
         _dataSource = dataSource;
     }
 
-    public async Task<IReadOnlyList<CurrentRankingResponse>> GetCurrentRankingsAsync(
-        int topX = 10,
-        bool vrsRanking = false,
-        CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<TeamsResponse>> GetTeamsAsync(CancellationToken cancellationToken = default)
     {
         const string sql = """
             SELECT *
-            FROM dbo.udf_get_current_ranking(@p_top_x, @p_vrs_ranking);
+            FROM udf_get_teams();
             """;
 
         await using var connection = await _dataSource.OpenConnectionAsync(cancellationToken);
 
-        var results = await connection.QueryAsync<CurrentRankingResponse>(
+        var results = await connection.QueryAsync<TeamsResponse>(
             new CommandDefinition(
                 sql,
-                new { p_top_x = topX, p_vrs_ranking = vrsRanking },
                 cancellationToken: cancellationToken
             ));
 

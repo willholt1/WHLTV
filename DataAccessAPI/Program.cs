@@ -25,6 +25,9 @@ builder.Services.AddNpgsqlDataSource(connectionString);
 builder.Services.AddScoped<IRankingRepository, RankingRepository>();
 builder.Services.AddScoped<IRankingService, RankingService>();
 
+builder.Services.AddScoped<ITeamsRepository, TeamsRepository>();
+builder.Services.AddScoped<ITeamsService, TeamsService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
