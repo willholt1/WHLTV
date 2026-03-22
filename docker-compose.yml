@@ -10,6 +10,22 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+  dataaccessapi:
+    build:
+      context: ./DataAccessAPI
+      dockerfile: Dockerfile
+    container_name: whltv-dataaccessapi
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
 
 volumes:
   pgdata:
