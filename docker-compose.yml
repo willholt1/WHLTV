@@ -26,6 +26,18 @@ services:
       - "8080:8080"
     depends_on:
       - db
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: dockerfile.dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
 
 volumes:
   pgdata:
+  
