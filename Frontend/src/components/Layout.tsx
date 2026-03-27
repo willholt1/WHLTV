@@ -7,9 +7,12 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   return (
-    <div style={{ padding: "1rem" }}>
+    <div className="min-h-screen bg-slate-900 text-slate-300">
       <NavBar />
-      <main>{children}</main>
+
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        {children}
+      </main>
     </div>
   );
 }
