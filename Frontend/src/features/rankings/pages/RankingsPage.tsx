@@ -41,19 +41,15 @@ export function RankingsPage() {
     <div>
       <h1>Current Rankings</h1>
 
-      <div className="flex flex-wrap items-end gap-6 mb-4">
+      <div className="filter-controls">
 
         {/* Top X */}
         <div>
-          <label className="block text-xs text-slate-400 mb-1">
-            Top X
-          </label>
-
+          <label className="filter-label">Top X</label>
           <select
             value={topX}
             onChange={(e) => setTopX(Number(e.target.value))}
-            className="bg-slate-800 border border-slate-700 text-slate-200 rounded-md px-3 py-2 text-sm 
-                 focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-slate-500 transition"
+            className="filter-select"
           >
             <option value={10}>10</option>
             <option value={20}>20</option>
@@ -63,12 +59,12 @@ export function RankingsPage() {
         </div>
 
         {/* Checkbox */}
-        <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+        <label className="filter-checkbox-label">
           <input
             type="checkbox"
             checked={vrsRanking}
             onChange={(e) => setVrsRanking(e.target.checked)}
-            className="w-4 h-4 accent-green-500"
+            className="filter-checkbox"
           />
           VRS ranking
         </label>
@@ -83,29 +79,21 @@ export function RankingsPage() {
           <p>Ranking date: {rankingDate}</p>
           <div className="bg-slate-800 rounded-sm border border-slate-700 overflow-hidden shadow-sm">
             <div className="max-h-[500px] overflow-y-auto">
-              <table className="w-full">
-                <thead className="bg-slate-700 text-slate-300 text-xs uppercase sticky top-0 z-10">
+              <table className="table-base">
+                <thead className="table-header">
                   <tr>
-                    <th className="px-4 py-3 text-left">Rank</th>
-                    <th className="px-4 py-3 text-left">Team</th>
-                    <th className="px-4 py-3 text-right">Points</th>
+                    <th className="table-th">Rank</th>
+                    <th className="table-th">Team</th>
+                    <th className="table-th-right">Points</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {rankings.map((team) => (
-                    <tr
-                      key={`${team.team_name}-${team.rank}`}
-                      className="border-t border-slate-700 hover:bg-slate-700/40 transition"
-                    >
-                      <td className="px-4 py-3 font-semibold text-white">
-                        {team.rank}
-                      </td>
-                      <td className="px-4 py-3 text-slate-200">
-                        {team.team_name}
-                      </td>
-                      <td className="px-4 py-3 text-right text-green-400 font-medium">
-                        {team.points}
-                      </td>
+                    <tr key={team.team_name} className="table-row">
+                      <td className="table-td-strong">{team.rank}</td>
+                      <td className="table-td">{team.team_name}</td>
+                      <td className="table-td-right">{team.points}</td>
                     </tr>
                   ))}
                 </tbody>

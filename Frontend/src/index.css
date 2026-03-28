@@ -1,1 +1,51 @@
 @import "tailwindcss";
+@layer components {
+  .filter-controls {
+    @apply flex flex-wrap items-end gap-6 mb-4;
+  }
+  .filter-label {
+    @apply block text-xs text-slate-400 mb-1;
+  }
+  .filter-select {
+    @apply bg-slate-800 border border-slate-700 text-slate-200 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-slate-500 transition;
+  }
+  .filter-checkbox-label {
+    @apply flex items-center gap-2 text-sm text-slate-300 cursor-pointer;
+  }
+  .filter-checkbox {
+    @apply w-4 h-4 accent-green-500;
+  }
+}
+@layer components {
+  .table-base {
+    @apply w-full;
+  }
+
+  .table-header {
+    @apply bg-slate-700 text-slate-300 text-xs uppercase sticky top-0 z-10;
+  }
+
+  .table-th {
+    @apply px-4 py-3 text-left;
+  }
+
+  .table-th-right {
+    @apply px-4 py-3 text-right;
+  }
+
+  .table-row {
+    @apply border-t border-slate-700 hover:bg-slate-700/40 transition;
+  }
+
+  .table-td {
+    @apply px-4 py-3 text-slate-200;
+  }
+
+  .table-td-strong {
+    @apply px-4 py-3 font-semibold text-white;
+  }
+
+  .table-td-right {
+    @apply px-4 py-3 text-right text-green-400 font-medium tabular-nums;
+  }
+}
