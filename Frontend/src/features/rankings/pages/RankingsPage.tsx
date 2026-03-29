@@ -23,7 +23,7 @@ export function RankingsPage() {
         const sorted = [...data].sort((a, b) => a.rank - b.rank);
         setRankings(sorted);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error")
+        setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
@@ -42,7 +42,6 @@ export function RankingsPage() {
       <h1>Current Rankings</h1>
 
       <div className="filter-controls">
-
         {/* Top X */}
         <div>
           <label className="filter-label">Top X</label>
@@ -68,7 +67,6 @@ export function RankingsPage() {
           />
           VRS ranking
         </label>
-
       </div>
 
       {loading && <p>Loading rankings...</p>}
@@ -78,7 +76,7 @@ export function RankingsPage() {
         <>
           <p>Ranking date: {rankingDate}</p>
           <div className="bg-slate-800 rounded-sm border border-slate-700 overflow-hidden shadow-sm">
-            <div className="max-h-[500px] overflow-y-auto">
+            <div className="max-h-125 overflow-y-auto">
               <table className="table-base">
                 <thead className="table-header">
                   <tr>

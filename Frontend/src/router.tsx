@@ -3,6 +3,7 @@ import App from "./App";
 import { RankingsPage } from "./features/rankings/pages/RankingsPage";
 import { HomePage } from "./pages/HomePage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { VetosPage } from "./features/vetos/pages/vetosPage";
 
 export const router = createBrowserRouter([
   {
@@ -11,6 +12,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: "rankings", element: <RankingsPage /> },
+      { path: "vetos", element: <VetosPage /> },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

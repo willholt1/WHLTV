@@ -4,15 +4,10 @@ export function NavBar() {
   return (
     <nav className="bg-slate-800 border-b border-slate-700">
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        <span className="text-white font-semibold text-lg">
-          WHLTV
-        </span>
+        <span className="text-white font-semibold text-lg">WHLTV</span>
 
         <div className="flex gap-6 text-sm">
-          <Link
-            to="/"
-            className="hover:text-white transition-colors"
-          >
+          <Link to="/" className="hover:text-white transition-colors">
             Home
           </Link>
 
@@ -21,6 +16,10 @@ export function NavBar() {
             className="hover:text-blue-400 transition-colors"
           >
             Rankings
+          </Link>
+
+          <Link to="/vetos" className="hover:text-blue-400 transition-colors">
+            Vetos
           </Link>
         </div>
       </div>
