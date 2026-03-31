@@ -29,6 +29,17 @@ class Veto:
     mapID: Map
 
 @dataclass
+class MapResult:
+    mapID: Map
+    team1Score: int
+    team2Score: int
+    team1TScore: int
+    team1CTScore: int
+    team2TScore: int
+    team2CTScore: int
+
+
+@dataclass
 class MatchData:
     matchID: int
     matchDate: datetime
@@ -36,3 +47,4 @@ class MatchData:
     demoLink: Optional[str] = None
     matchVeto: List[Veto] = field(default_factory=list)
     players: List[Player] = field(default_factory=list)
+    results: List[MapResult] = field(default_factory=list)

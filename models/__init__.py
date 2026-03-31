@@ -13,4 +13,5 @@ from .matchData import (
     Player,
     Veto,
     MatchData,
+    MapResult,
 )
