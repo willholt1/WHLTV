@@ -2,9 +2,9 @@
 -- PostgreSQL database dump
 --
 
-\restrict FYhRmu5ck6fV4wAbEkv2ckxEp7GMVWL1nEJg2L2f4lhIP6G13s8nsUX0TtMPEYb
+\restrict Fk0uplGrpbBwRfKidXLB0EcRhz0SeFrtpNZpguznpIMsBmRMbT6wSOdddujiUuF
 
--- Dumped from database version 18.2
+-- Dumped from database version 16.13 (Debian 16.13-1.pgdg13+1)
 -- Dumped by pg_dump version 18.3 (Homebrew)
 
 SET statement_timeout = 0;
@@ -312,6 +312,52 @@ $$;
 
 
 --
+-- Name: udf_set_match_results(jsonb, integer); Type: FUNCTION; Schema: dbo; Owner: -
+--
+
+CREATE FUNCTION dbo.udf_set_match_results(p_payload jsonb, p_matchid integer) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+BEGIN
+
+    CREATE TEMP TABLE tmp_flat_res ON COMMIT DROP AS
+    SELECT
+        p_matchID       AS match_id,
+        r."mapID"         AS mapID,
+        r."team1Score"    AS team1Score,
+        r."team2Score"    AS team2Score,
+        r."team1TScore"   AS team1TScore,
+        r."team1CTScore"  AS team1CTScore,
+        r."team2TScore"   AS team2TScore,
+        r."team2CTScore"  AS team2CTScore
+    FROM (
+        SELECT p_payload::jsonb AS j
+    ) pld
+    CROSS JOIN LATERAL jsonb_to_recordset(pld.j->'results') AS r
+    (
+        "mapID" int,
+        "team1Score" int,
+        "team2Score" int,
+        "team1TScore" int,
+        "team1CTScore" int,
+        "team2TScore" int,
+        "team2CTScore" int
+    );
+
+    UPDATE tblmatchmaps as t
+    SET team1score = tf.team1Score,
+        team2score = tf.team2Score,
+        team1ctscore = tf.team1CTScore,
+        team1tscore = tf.team1TScore,
+        team2ctscore = tf.team2CTScore,
+        team2tscore = tf.team2TScore
+    FROM tmp_flat_res tf WHERE tf.mapID = t.mapid AND tf.match_id = t.matchid;
+
+END $$;
+
+
+--
 -- Name: usp_insert_event(text, text, timestamp with time zone, timestamp with time zone, text, text, text); Type: PROCEDURE; Schema: dbo; Owner: -
 --
 
@@ -443,7 +489,8 @@ DECLARE
 BEGIN
 
     PERFORM dbo.udf_insert_matchpage_match_data(p_payload, v_match_id);  
-    PERFORM dbo.udf_insert_match_veto(p_payload, v_match_id);    
+    PERFORM dbo.udf_insert_match_veto(p_payload, v_match_id);
+    PERFORM dbo.udf_set_match_results(p_payload, v_match_id);
     PERFORM dbo.udf_insert_match_playerdata(p_payload, v_match_id);
 
 EXCEPTION WHEN OTHERS THEN
@@ -800,7 +847,11 @@ CREATE TABLE dbo.tblmatchmaps (
     matchid integer,
     mapid integer,
     team1score integer,
-    team2score integer
+    team2score integer,
+    team1tscore integer,
+    team1ctscore integer,
+    team2tscore integer,
+    team2ctscore integer
 );
 
 
@@ -1266,5 +1317,5 @@ ALTER TABLE ONLY dbo.tblevents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict FYhRmu5ck6fV4wAbEkv2ckxEp7GMVWL1nEJg2L2f4lhIP6G13s8nsUX0TtMPEYb
+\unrestrict Fk0uplGrpbBwRfKidXLB0EcRhz0SeFrtpNZpguznpIMsBmRMbT6wSOdddujiUuF
 
