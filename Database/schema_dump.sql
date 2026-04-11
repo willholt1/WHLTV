@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict Fk0uplGrpbBwRfKidXLB0EcRhz0SeFrtpNZpguznpIMsBmRMbT6wSOdddujiUuF
+\restrict CvRdx4kHB2JBTzdPfbVXnUwbGKWDULd0RWYamuhBjb1UTKauvLgl2p4aZ0mQS46
 
 -- Dumped from database version 16.13 (Debian 16.13-1.pgdg13+1)
 -- Dumped by pg_dump version 18.3 (Homebrew)
@@ -178,6 +178,118 @@ BEGIN
     WHERE hltvrank < 20
     GROUP BY teamname, t.teamid
     ORDER BY COUNT(*) DESC;
+
+END;
+$$;
+
+
+--
+-- Name: udf_get_veto_data(date, date, integer); Type: FUNCTION; Schema: dbo; Owner: -
+--
+
+CREATE FUNCTION dbo.udf_get_veto_data(p_from_date date, p_to_date date, p_team_id integer) RETURNS TABLE(map_name text, pick_total bigint, ban_total bigint, remaining_total bigint, round_dif bigint, ct_round_dif bigint, t_round_dif bigint, wins bigint, times_played bigint, win_pct numeric)
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    RETURN QUERY
+    WITH
+    mappool as (
+        SELECT DISTINCT t6.mapid
+        FROM tblmatches mt
+        INNER JOIN tblmatchveto t6 on t6.matchid = mt.matchid
+        WHERE mt.matchdate >= p_from_date
+            AND mt.matchdate <= p_to_date
+    ),
+    matches as (
+        SELECT t.matchid
+                ,t.team1id AS teamid
+                ,t3.mapid
+                ,t3.team1score
+                ,t3.team2score
+                ,t3.team1tscore
+                ,t3.team2tscore
+                ,t3.team1ctscore
+                ,t3.team2ctscore
+        FROM tblmatches t
+        INNER JOIN tblmatchmaps t3 ON t3.matchid = t.matchid
+        WHERE t.matchdate >= p_from_date
+            AND t.matchdate <= p_to_date
+            AND t.team1id = p_team_id
+
+        UNION
+
+        SELECT t2.matchid
+            ,t2.team2id AS teamid
+            ,t4.mapid
+            ,t4.team2score AS team1score
+            ,t4.team1score AS team2score
+            ,t4.team2tscore AS team1tscore
+            ,t4.team1tscore AS team2tscore
+            ,t4.team2ctscore AS team1ctscore
+            ,t4.team1ctscore AS team2ctscore
+        FROM tblmatches t2
+        INNER JOIN tblmatchmaps t4 ON t4.matchid = t2.matchid
+        WHERE t2.matchdate >= p_from_date
+            AND t2.matchdate <= p_to_date
+            AND t2.team2id = p_team_id
+    ),
+    record as (
+        SELECT m.matchid
+                ,m.mapid
+                ,m.team1score - m.team2score AS round_dif
+                ,m.team1tscore - m.team2tscore AS t_round_dif
+                ,m.team1ctscore - m.team2ctscore AS ct_round_dif
+                ,CASE
+                    WHEN m.team1score > m.team2score THEN 1
+                    WHEN m.team1score < m.team2score THEN 0
+                END AS result
+        FROM matches AS m
+        WHERE m.team1score IS NOT NULL
+    ),
+    recordpivot AS (
+        SELECT r.mapid
+                ,SUM(r.round_dif) AS round_dif
+                ,SUM(r.t_round_dif) AS t_round_dif
+                ,SUM(r.ct_round_dif) AS ct_round_dif
+                ,SUM(result) AS wins
+                ,count(*) AS times_played
+        FROM record r
+        GROUP BY r.mapid
+    ),
+    pickban AS (
+        SELECT COUNT(*) AS total
+             , mv.mapid
+             , mv.vetoactionid
+        FROM tblmatchveto mv
+        WHERE EXISTS(SELECT 1 FROM matches m2 WHERE m2.matchid = mv.matchid)
+          AND (mv.teamid = p_team_id OR mv.teamid IS NULL)
+        GROUP BY mv.mapid, mv.vetoactionid
+    ),
+    pickbanpivot AS (
+        SELECT  mn.mapid
+                ,mn.mapname
+                ,COALESCE(pb1.total, 0) AS pick_total
+                ,COALESCE(pb2.total, 0) AS ban_total
+                ,COALESCE(pb3.total, 0) AS remaining_total
+        FROM tblmaps mn
+        LEFT JOIN pickban pb1 ON pb1.mapid = mn.mapid AND pb1.vetoactionid = 1  -- Pick
+        LEFT JOIN pickban pb2 ON pb2.mapid = mn.mapid AND pb2.vetoactionid = 2  -- Ban
+        LEFT JOIN pickban pb3 ON pb3.mapid = mn.mapid AND pb3.vetoactionid = 3  -- Remaining
+        WHERE EXISTS(SELECT 1 FROM mappool mp WHERE mp.mapid = mn.mapid)
+    )
+
+    SELECT pbp.mapname AS map_name
+            ,pbp.pick_total
+            ,pbp.ban_total
+            ,pbp.remaining_total
+            ,rp.round_dif
+            ,rp.ct_round_dif
+            ,rp.t_round_dif
+            ,rp.wins
+            ,rp.times_played
+            ,ROUND(rp.wins::DECIMAL / NULLIF(rp.times_played, 0), 4) AS win_pct
+    FROM pickbanpivot pbp
+    LEFT JOIN recordpivot rp ON rp.mapid = pbp.mapid;
 
 END;
 $$;
@@ -488,7 +600,7 @@ DECLARE
     v_match_id int := (p_payload->>'matchID')::int;
 BEGIN
 
-    PERFORM dbo.udf_insert_matchpage_match_data(p_payload, v_match_id);  
+    PERFORM dbo.udf_insert_matchpage_match_data(p_payload, v_match_id);
     PERFORM dbo.udf_insert_match_veto(p_payload, v_match_id);
     PERFORM dbo.udf_set_match_results(p_payload, v_match_id);
     PERFORM dbo.udf_insert_match_playerdata(p_payload, v_match_id);
@@ -1317,5 +1429,5 @@ ALTER TABLE ONLY dbo.tblevents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict Fk0uplGrpbBwRfKidXLB0EcRhz0SeFrtpNZpguznpIMsBmRMbT6wSOdddujiUuF
+\unrestrict CvRdx4kHB2JBTzdPfbVXnUwbGKWDULd0RWYamuhBjb1UTKauvLgl2p4aZ0mQS46
 
