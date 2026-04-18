@@ -2,19 +2,19 @@ import { apiFetch } from "../../api/client";
 import type { VetoData } from "./types";
 
 export interface GetTeamVetoDataParams {
-  teamID: number;
-  startDate: Date;
-  endDate: Date;
+  from_date: Date;
+  to_date: Date;
+  team_id: number;
 }
 
 export function getTeamVetoData(
   params: GetTeamVetoDataParams,
 ): Promise<VetoData[]> {
   const searchParams = new URLSearchParams({
-    teamID: params.teamID.toString(),
-    startDate: params.startDate.toString(),
-    endDate: params.endDate.toString(),
+    from_date: params.from_date.toISOString(),
+    to_date: params.to_date.toISOString(),
+    team_id: params.team_id.toString(),
   });
 
-  return apiFetch<VetoData[]>(`/api/Vetos/Team?${searchParams.toString()}`);
+  return apiFetch<VetoData[]>(`/api/Team/veto-data?${searchParams.toString()}`);
 }

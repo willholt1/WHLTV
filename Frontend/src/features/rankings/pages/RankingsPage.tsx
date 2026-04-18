@@ -10,7 +10,7 @@ export function RankingsPage() {
   const [vrsRanking, setVrsRanking] = useState(true);
 
   useEffect(() => {
-    async function loadRankings() {
+    async function fetchRankings() {
       try {
         setLoading(true);
         setError("");
@@ -29,7 +29,7 @@ export function RankingsPage() {
       }
     }
 
-    void loadRankings();
+    void fetchRankings();
   }, [topX, vrsRanking]);
 
   const rankingDate =
@@ -39,7 +39,7 @@ export function RankingsPage() {
 
   return (
     <div>
-      <h1>Current Rankings</h1>
+      <h1 className="text-2xl font-bold mb-4">Current Rankings</h1>
 
       <div className="filter-controls">
         {/* Top X */}
