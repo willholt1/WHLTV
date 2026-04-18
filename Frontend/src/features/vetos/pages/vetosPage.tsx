@@ -3,12 +3,79 @@ import { getTeamVetoData } from "../api";
 import type { VetoData } from "../types";
 import { DateRangePicker } from "../../../components/DateRangePicker";
 import { TeamSelect } from "../../../components/TeamSelect";
+import { SortableTable } from "../../../components/SortableTable";
+import type { SortableTableColumn } from "../../../components/SortableTable";
 
 export function VetosPage() {
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
 
   const [vetoData, setVetoData] = useState<VetoData[]>([]);
   const [loadingVetoData, setLoadingVetoData] = useState(false);
+
+  // Define columns for the sortable table
+  const vetoColumns: SortableTableColumn<VetoData>[] = [
+    { key: "map_name", label: "Map Name" },
+    { key: "times_played", label: "Times Played" },
+    { key: "pick_total", label: "Pick Total" },
+    { key: "ban_total", label: "Ban Total" },
+    { key: "remaining_total", label: "Remaining Total" },
+    {
+      key: "round_dif",
+      label: "Round Dif",
+      render: (row) => (
+        <span
+          className={
+            row.round_dif > 0
+              ? "text-green-400"
+              : row.round_dif < 0
+                ? "text-red-400"
+                : undefined
+          }
+        >
+          {row.round_dif}
+        </span>
+      ),
+    },
+    {
+      key: "ct_round_dif",
+      label: "CT Round Dif",
+      render: (row) => (
+        <span
+          className={
+            row.ct_round_dif > 0
+              ? "text-green-400"
+              : row.ct_round_dif < 0
+                ? "text-red-400"
+                : undefined
+          }
+        >
+          {row.ct_round_dif}
+        </span>
+      ),
+    },
+    {
+      key: "t_round_dif",
+      label: "T Round Dif",
+      render: (row) => (
+        <span
+          className={
+            row.t_round_dif > 0
+              ? "text-green-400"
+              : row.t_round_dif < 0
+                ? "text-red-400"
+                : undefined
+          }
+        >
+          {row.t_round_dif}
+        </span>
+      ),
+    },
+    {
+      key: "win_pct",
+      label: "Win %",
+      render: (row) => `${(row.win_pct * 100).toFixed(2)}%`,
+    },
+  ];
 
   // Calculate default dates: fromDate = 4 months ago, toDate = today
   function getDefaultDates() {
@@ -71,39 +138,12 @@ export function VetosPage() {
       {!loadingVetoData && vetoData.length > 0 && (
         <div className="bg-slate-800 rounded-sm border border-slate-700 overflow-hidden shadow-sm">
           <div className="max-h-125 overflow-y-auto">
-            <table className="table-base">
-              <thead className="table-header">
-                <tr>
-                  <th className="table-th">Map Name</th>
-                  <th className="table-th">Times Played</th>
-                  <th className="table-th">Pick Total</th>
-                  <th className="table-th">Ban Total</th>
-                  <th className="table-th">Remaining Total</th>
-                  <th className="table-th">Round Dif</th>
-                  <th className="table-th">CT Round Dif</th>
-                  <th className="table-th">T Round Dif</th>
-                  <th className="table-th">Win %</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {vetoData.map((map) => (
-                  <tr key={map.map_name} className="table-row">
-                    <td className="table-td">{map.map_name}</td>
-                    <td className="table-td">{map.times_played}</td>
-                    <td className="table-td">{map.pick_total}</td>
-                    <td className="table-td">{map.ban_total}</td>
-                    <td className="table-td">{map.remaining_total}</td>
-                    <td className="table-td">{map.round_dif}</td>
-                    <td className="table-td">{map.ct_round_dif}</td>
-                    <td className="table-td">{map.t_round_dif}</td>
-                    <td className="table-td">
-                      {(map.win_pct * 100).toFixed(2)}%
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <SortableTable
+              columns={vetoColumns}
+              data={vetoData}
+              rowKey={(row) => row.map_name}
+              initialSortKey="map_name"
+            />
           </div>
         </div>
       )}
