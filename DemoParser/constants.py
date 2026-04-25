@@ -25,6 +25,8 @@ TRACKED_EVENTS = [
     ,"inferno_expire"
     ,"player_hurt"
     ,"server_cvar"
+    ,"bomb_defused"
+    ,"fire_bullets"
 ]
 
 TRACKED_TICK_PROPS = [
@@ -231,39 +233,69 @@ TICK_COLS = [
 
 # From AWPY
 DEFAULT_PLAYER_PROPS = [
-    "team_name",
-    "team_clan_name",
-    "X",
-    "Y",
-    "Z",
-    "last_place_name",
-    "velocity_X",
-    "velocity_Y",
-    "velocity_Z",
-    "pitch",
-    "yaw",
-    "health",
-    "armor_value",
-    "inventory",
-    "current_equip_value",
-    "has_defuser",
-    "has_helmet",
-    "flash_duration",
-    "accuracy_penalty",
-    "zoom_lvl",
-    "ping",
+    "team_name"
+    ,"team_clan_name"
+    ,"X"
+    ,"Y"
+    ,"Z"
+    ,"last_place_name"
+    ,"velocity_X"
+    ,"velocity_Y"
+    ,"velocity_Z"
+    ,"pitch"
+    ,"yaw"
+    ,"health"
+    ,"armor_value"
+    ,"inventory"
+    ,"current_equip_value"
+    ,"has_defuser"
+    ,"has_helmet"
+    ,"flash_duration"
+    ,"accuracy_penalty"
+    ,"zoom_lvl"
+    ,"ping"
 ]
 
 DEFAULT_WORLD_PROPS = [
-    "game_time",
-    "is_bomb_planted",
-    "which_bomb_zone",
-    "is_freeze_period",
-    "is_warmup_period",
-    "is_terrorist_timeout",
-    "is_ct_timeout",
-    "is_technical_timeout",
-    "is_waiting_for_resume",
-    "is_match_started",
-    "game_phase",
+    "game_time"
+    ,"is_bomb_planted"
+    ,"which_bomb_zone"
+    ,"is_freeze_period"
+    ,"is_warmup_period"
+    ,"is_terrorist_timeout"
+    ,"is_ct_timeout"
+    ,"is_technical_timeout"
+    ,"is_waiting_for_resume"
+    ,"is_match_started"
+    ,"game_phase"
+]
+
+UNTRACKED_EVENTS = [
+    "cs_win_panel_match"
+    ,"cs_round_final_beep" 
+    ,"round_time_warning"
+    ,"player_connect"
+    ,"player_ping"
+    ,"round_announce_match_start" 
+    ,"round_announce_last_round_half"
+    ,"cs_win_panel_round"
+    ,"hltv_chase"
+    ,"announce_phase_end"
+    ,"round_announce_final" 
+    ,"round_mvp"
+    ,"player_ping_stop" 
+    ,"player_connect_full" 
+    ,"player_activate"
+    ,"server_message" 
+    ,"cs_pre_restart" 
+    ,"hltv_fixed"
+    ,"cs_intermission" 
+    ,"vote_cast"
+    ,"round_end_upload_stats" 
+    ,"cs_round_start_beep"
+    ,"hltv_versioninfo"
+]
+
+COMPOSITE_EVENTS = [
+    "grenade_data"
 ]
