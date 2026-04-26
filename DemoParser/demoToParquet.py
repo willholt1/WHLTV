@@ -78,6 +78,10 @@ def get_demo_data(demos):
                 df = pd.DataFrame(parser.parse_event(event))
             else:
                 df = pd.DataFrame(parser.parse_event(event, player=c.DEFAULT_PLAYER_PROPS, other=c.DEFAULT_WORLD_PROPS))
+            
+            if df.empty:
+                continue  # skip if no data for this event
+            
             df['event_type'] = event  # tag the event type
             for col in c.TICK_COLS:
                 if col in df.columns:

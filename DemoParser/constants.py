@@ -27,6 +27,7 @@ TRACKED_EVENTS = [
     ,"server_cvar"
     ,"bomb_defused"
     ,"fire_bullets"
+    ,"grenade_thrown"
 ]
 
 TRACKED_TICK_PROPS = [
@@ -294,6 +295,8 @@ UNTRACKED_EVENTS = [
     ,"round_end_upload_stats" 
     ,"cs_round_start_beep"
     ,"hltv_versioninfo"
+    ,"chat_message"
+    ,"round_announce_match_point"
 ]
 
 COMPOSITE_EVENTS = [
