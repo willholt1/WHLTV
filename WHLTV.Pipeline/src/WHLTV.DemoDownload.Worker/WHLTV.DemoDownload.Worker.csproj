@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-WHLTV.DemoDownload.Worker-5f440dc1-df14-4c4b-9e6c-fd1ad3826286</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WHLTV.Pipeline.Domain\WHLTV.Pipeline.Domain.csproj" />
+    <ProjectReference Include="..\WHLTV.Pipeline.DataAccess\WHLTV.Pipeline.DataAccess.csproj" />
+    <ProjectReference Include="..\WHLTV.Pipeline.Infrastructure\WHLTV.Pipeline.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

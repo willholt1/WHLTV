@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WHLTV.DemoDownload.Worker/WHLTV.DemoDownload.Worker.csproj" />
+    <Project Path="src/WHLTV.DemoPipeline.Worker/WHLTV.DemoPipeline.Worker.csproj" />
+    <Project Path="src/WHLTV.Pipeline.DataAccess/WHLTV.Pipeline.DataAccess.csproj" />
+    <Project Path="src/WHLTV.Pipeline.Domain/WHLTV.Pipeline.Domain.csproj" />
+    <Project Path="src/WHLTV.Pipeline.Infrastructure/WHLTV.Pipeline.Infrastructure.csproj" />
+  </Folder>
+</Solution>
