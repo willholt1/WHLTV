@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict CvRdx4kHB2JBTzdPfbVXnUwbGKWDULd0RWYamuhBjb1UTKauvLgl2p4aZ0mQS46
+\restrict XIOvv0Dtbm6l2xtN6RxBqTCbLAA1yd6Y04rxSchqKRIn3PSIhb3jrB9kJZGBei8
 
 -- Dumped from database version 16.13 (Debian 16.13-1.pgdg13+1)
 -- Dumped by pg_dump version 18.3 (Homebrew)
@@ -31,6 +31,58 @@ CREATE SCHEMA dbo;
 --
 
 -- *not* creating schema, since initdb creates it
+
+
+--
+-- Name: demo_download_status; Type: TYPE; Schema: dbo; Owner: -
+--
+
+CREATE TYPE dbo.demo_download_status AS ENUM (
+    'PendingDownload',
+    'Downloading',
+    'ReadyToExtract',
+    'Extracting',
+    'Extracted',
+    'Completed',
+    'Failed'
+);
+
+
+--
+-- Name: demo_file_status; Type: TYPE; Schema: dbo; Owner: -
+--
+
+CREATE TYPE dbo.demo_file_status AS ENUM (
+    'ReadyToConvert',
+    'Converting',
+    'ReadyToValidate',
+    'Validating',
+    'ReadyToStore',
+    'Storing',
+    'Stored',
+    'Failed'
+);
+
+
+--
+-- Name: pipeline_entity_type; Type: TYPE; Schema: dbo; Owner: -
+--
+
+CREATE TYPE dbo.pipeline_entity_type AS ENUM (
+    'DemoDownloadJob',
+    'DemoFileJob'
+);
+
+
+--
+-- Name: pipeline_stage_status; Type: TYPE; Schema: dbo; Owner: -
+--
+
+CREATE TYPE dbo.pipeline_stage_status AS ENUM (
+    'Started',
+    'Succeeded',
+    'Failed'
+);
 
 
 --
@@ -678,20 +730,29 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- Name: tbldemos; Type: TABLE; Schema: dbo; Owner: -
+-- Name: tbldemodownloadjobs; Type: TABLE; Schema: dbo; Owner: -
 --
 
-CREATE TABLE dbo.tbldemos (
-    demoid integer NOT NULL,
-    filepath text NOT NULL
+CREATE TABLE dbo.tbldemodownloadjobs (
+    demodownloadjobid integer NOT NULL,
+    matchid integer NOT NULL,
+    demolink text NOT NULL,
+    status dbo.demo_download_status DEFAULT 'PendingDownload'::dbo.demo_download_status NOT NULL,
+    archiverelativepath text,
+    attemptcount integer DEFAULT 0 NOT NULL,
+    errormessage text,
+    createdat timestamp without time zone DEFAULT now() NOT NULL,
+    startedat timestamp without time zone,
+    completedat timestamp without time zone,
+    updatedat timestamp without time zone DEFAULT now() NOT NULL
 );
 
 
 --
--- Name: tbldemos_demoid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
+-- Name: tbldemodownloadjobs_demodownloadjobid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
-CREATE SEQUENCE dbo.tbldemos_demoid_seq
+CREATE SEQUENCE dbo.tbldemodownloadjobs_demodownloadjobid_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
@@ -701,10 +762,89 @@ CREATE SEQUENCE dbo.tbldemos_demoid_seq
 
 
 --
--- Name: tbldemos_demoid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
+-- Name: tbldemodownloadjobs_demodownloadjobid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
-ALTER SEQUENCE dbo.tbldemos_demoid_seq OWNED BY dbo.tbldemos.demoid;
+ALTER SEQUENCE dbo.tbldemodownloadjobs_demodownloadjobid_seq OWNED BY dbo.tbldemodownloadjobs.demodownloadjobid;
+
+
+--
+-- Name: tbldemofilejobs; Type: TABLE; Schema: dbo; Owner: -
+--
+
+CREATE TABLE dbo.tbldemofilejobs (
+    demofilejobid integer NOT NULL,
+    demodownloadjobid integer NOT NULL,
+    matchmapid integer,
+    demoid integer,
+    demorelativepath text NOT NULL,
+    parquettemprelativepath text,
+    parquetfinalrelativepath text,
+    status dbo.demo_file_status DEFAULT 'ReadyToConvert'::dbo.demo_file_status NOT NULL,
+    attemptcount integer DEFAULT 0 NOT NULL,
+    errormessage text,
+    createdat timestamp without time zone DEFAULT now() NOT NULL,
+    startedat timestamp without time zone,
+    completedat timestamp without time zone,
+    updatedat timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: tbldemofilejobs_demofilejobid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
+--
+
+CREATE SEQUENCE dbo.tbldemofilejobs_demofilejobid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: tbldemofilejobs_demofilejobid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
+--
+
+ALTER SEQUENCE dbo.tbldemofilejobs_demofilejobid_seq OWNED BY dbo.tbldemofilejobs.demofilejobid;
+
+
+--
+-- Name: tbldemopipelinelogs; Type: TABLE; Schema: dbo; Owner: -
+--
+
+CREATE TABLE dbo.tbldemopipelinelogs (
+    pipelinestagelogid integer NOT NULL,
+    entitytype dbo.pipeline_entity_type NOT NULL,
+    entityid integer NOT NULL,
+    stagename text NOT NULL,
+    status dbo.pipeline_stage_status NOT NULL,
+    startedat timestamp without time zone DEFAULT now() NOT NULL,
+    completedat timestamp without time zone,
+    exitcode integer,
+    errormessage text
+);
+
+
+--
+-- Name: tbldemopipelinelogs_pipelinestagelogid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
+--
+
+CREATE SEQUENCE dbo.tbldemopipelinelogs_pipelinestagelogid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: tbldemopipelinelogs_pipelinestagelogid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
+--
+
+ALTER SEQUENCE dbo.tbldemopipelinelogs_pipelinestagelogid_seq OWNED BY dbo.tbldemopipelinelogs.pipelinestagelogid;
 
 
 --
@@ -941,16 +1081,6 @@ ALTER SEQUENCE dbo.tblmatches_matchid_seq OWNED BY dbo.tblmatches.matchid;
 
 
 --
--- Name: tblmatchmapdemos; Type: TABLE; Schema: dbo; Owner: -
---
-
-CREATE TABLE dbo.tblmatchmapdemos (
-    matchmapid integer,
-    demoid integer
-);
-
-
---
 -- Name: tblmatchmaps; Type: TABLE; Schema: dbo; Owner: -
 --
 
@@ -1160,10 +1290,24 @@ ALTER SEQUENCE dbo.tblvetoactions_vetoactionid_seq OWNED BY dbo.tblvetoactions.v
 
 
 --
--- Name: tbldemos demoid; Type: DEFAULT; Schema: dbo; Owner: -
+-- Name: tbldemodownloadjobs demodownloadjobid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
-ALTER TABLE ONLY dbo.tbldemos ALTER COLUMN demoid SET DEFAULT nextval('dbo.tbldemos_demoid_seq'::regclass);
+ALTER TABLE ONLY dbo.tbldemodownloadjobs ALTER COLUMN demodownloadjobid SET DEFAULT nextval('dbo.tbldemodownloadjobs_demodownloadjobid_seq'::regclass);
+
+
+--
+-- Name: tbldemofilejobs demofilejobid; Type: DEFAULT; Schema: dbo; Owner: -
+--
+
+ALTER TABLE ONLY dbo.tbldemofilejobs ALTER COLUMN demofilejobid SET DEFAULT nextval('dbo.tbldemofilejobs_demofilejobid_seq'::regclass);
+
+
+--
+-- Name: tbldemopipelinelogs pipelinestagelogid; Type: DEFAULT; Schema: dbo; Owner: -
+--
+
+ALTER TABLE ONLY dbo.tbldemopipelinelogs ALTER COLUMN pipelinestagelogid SET DEFAULT nextval('dbo.tbldemopipelinelogs_pipelinestagelogid_seq'::regclass);
 
 
 --
@@ -1258,11 +1402,27 @@ ALTER TABLE ONLY dbo.tblvetoactions ALTER COLUMN vetoactionid SET DEFAULT nextva
 
 
 --
--- Name: tbldemos tbldemos_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
+-- Name: tbldemodownloadjobs tbldemodownloadjobs_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
-ALTER TABLE ONLY dbo.tbldemos
-    ADD CONSTRAINT tbldemos_pkey PRIMARY KEY (demoid);
+ALTER TABLE ONLY dbo.tbldemodownloadjobs
+    ADD CONSTRAINT tbldemodownloadjobs_pkey PRIMARY KEY (demodownloadjobid);
+
+
+--
+-- Name: tbldemofilejobs tbldemofilejobs_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
+--
+
+ALTER TABLE ONLY dbo.tbldemofilejobs
+    ADD CONSTRAINT tbldemofilejobs_pkey PRIMARY KEY (demofilejobid);
+
+
+--
+-- Name: tbldemopipelinelogs tbldemopipelinelogs_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
+--
+
+ALTER TABLE ONLY dbo.tbldemopipelinelogs
+    ADD CONSTRAINT tbldemopipelinelogs_pkey PRIMARY KEY (pipelinestagelogid);
 
 
 --
@@ -1429,5 +1589,5 @@ ALTER TABLE ONLY dbo.tblevents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict CvRdx4kHB2JBTzdPfbVXnUwbGKWDULd0RWYamuhBjb1UTKauvLgl2p4aZ0mQS46
+\unrestrict XIOvv0Dtbm6l2xtN6RxBqTCbLAA1yd6Y04rxSchqKRIn3PSIhb3jrB9kJZGBei8
 
