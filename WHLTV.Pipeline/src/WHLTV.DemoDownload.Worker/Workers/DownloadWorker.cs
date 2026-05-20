@@ -27,37 +27,27 @@ public sealed class DownloadWorker : BackgroundService
 
             if (job is null)
             {
-                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+                _logger.LogInformation("No pending download jobs found.");
+                await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
                 continue;
             }
 
-            try
-            {
-                _logger.LogInformation("Downloading demo job {JobID}", job.DemoDownloadJobID);
+            _logger.LogInformation(
+                "Claimed download job {JobID} for match {MatchID}",
+                job.DemoDownloadJobID,
+                job.MatchID
+            );
 
-                // Later: build docker run command properly from config.
-                var result = await _processRunner.RunAsync(
-                    "docker",
-                    $"run --rm your-downloader-image --url \"{job.DemoUrl}\"",
-                    stoppingToken
-                );
+            var fakeArchivePath = $"demo-archives/job-{job.DemoDownloadJobID}/demo.rar";
+            await _jobs.MarkReadyToExtract(job.DemoDownloadJobID, fakeArchivePath);
 
-                if (!result.Success)
-                {
-                    await _jobs.MarkFailed(job.DemoDownloadJobID, result.StandardError);
-                    continue;
-                }
+            _logger.LogInformation(
+                "Marked job {JobID} as ReadyToExtract with archive path {ArchivePath}",
+                job.DemoDownloadJobID,
+                fakeArchivePath
+            );
 
-                await _jobs.MarkReadyToExtract(
-                    job.DemoDownloadJobID,
-                    archiveRelativePath: $"demo-archives/job-{job.DemoDownloadJobID}/demo.rar"
-                );
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Download job {JobID} failed", job.DemoDownloadJobID);
-                await _jobs.MarkFailed(job.DemoDownloadJobID, ex.Message);
-            }
         }
+
     }
 }
