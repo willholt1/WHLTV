@@ -5,16 +5,16 @@ using WHLTV.Pipeline.Domain.Enums;
 
 namespace WHLTV.Pipeline.DataAccess.Repositories;
 
-public sealed class DemoDownloadJobRepository
+public sealed class DemoPipelineLogsRepository
 {
     private readonly DbConnectionFactory _connectionFactory;
 
-    public DemoDownloadJobRepository(DbConnectionFactory connectionFactory)
+    public DemoPipelineLogsRepository(DbConnectionFactory connectionFactory)
     {
         _connectionFactory = connectionFactory;
     }
 
-    public async Task<int> LogStatusStart(PipelineEntityType entityType, int entityId, string stageName, PipelineStageStaus status)
+    public async Task<int> LogStatusStart(PipelineEntityType entityType, int entityId, string stageName, PipelineStageStatus status)
     {
         const string sql = """
             INSERT INTO tbldemopipelinelogs (
@@ -24,10 +24,10 @@ public sealed class DemoDownloadJobRepository
                 ,status
             ) 
             VALUES (
-                    @EntityType
+                    @EntityType::pipeline_entity_type
                     ,@EntityId
                     ,@StageName
-                    ,@Status
+                    ,@Status::pipeline_stage_status
             )
             RETURNING pipelinestagelogid;
             """;
@@ -36,10 +36,10 @@ public sealed class DemoDownloadJobRepository
 
         var insertedId = await connection.QuerySingleAsync<int>(sql, new
         {
-            EntityType = entityType,
+            EntityType = entityType.ToString(),
             EntityId = entityId,
             StageName = stageName,
-            Status = status
+            Status = status.ToString()
         });
         return insertedId;
     }

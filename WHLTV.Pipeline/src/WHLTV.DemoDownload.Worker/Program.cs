@@ -20,6 +20,7 @@ var connectionString =
 
 builder.Services.AddSingleton(new DbConnectionFactory(connectionString));
 builder.Services.AddSingleton<DemoDownloadJobRepository>();
+builder.Services.AddSingleton<DemoPipelineLogsRepository>();
 
 builder.Services.AddSingleton<ProcessRunner>();
 builder.Services.AddHostedService<DownloadWorker>();

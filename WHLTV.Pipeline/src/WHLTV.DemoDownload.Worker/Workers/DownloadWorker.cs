@@ -1,20 +1,24 @@
 using WHLTV.Pipeline.DataAccess.Repositories;
 using WHLTV.Pipeline.Infrastructure.Processes;
+using WHLTV.Pipeline.Domain.Enums;
 
 namespace WHLTV.DemoDownload.Worker.Workers;
 
 public sealed class DownloadWorker : BackgroundService
 {
     private readonly DemoDownloadJobRepository _jobs;
+    private readonly DemoPipelineLogsRepository _logs;
     private readonly ProcessRunner _processRunner;
     private readonly ILogger<DownloadWorker> _logger;
 
     public DownloadWorker(
         DemoDownloadJobRepository jobs,
+        DemoPipelineLogsRepository logs,
         ProcessRunner processRunner,
         ILogger<DownloadWorker> logger)
     {
         _jobs = jobs;
+        _logs = logs;
         _processRunner = processRunner;
         _logger = logger;
     }
@@ -37,15 +41,32 @@ public sealed class DownloadWorker : BackgroundService
                 job.DemoDownloadJobID,
                 job.MatchID
             );
+            var logID = await _logs.LogStatusStart(PipelineEntityType.DemoDownloadJob
+                                                 , job.DemoDownloadJobID
+                                                 , DemoDownloadStatus.Downloading.ToString()
+                                                 , PipelineStageStatus.Started);
 
-            var fakeArchivePath = $"demo-archives/job-{job.DemoDownloadJobID}/demo.rar";
-            await _jobs.MarkReadyToExtract(job.DemoDownloadJobID, fakeArchivePath);
+            try
+            {
+                // Simulate download with a delay
+                var fakeArchivePath = $"demo-archives/job-{job.DemoDownloadJobID}/demo.rar";
+                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
 
-            _logger.LogInformation(
-                "Marked job {JobID} as ReadyToExtract with archive path {ArchivePath}",
-                job.DemoDownloadJobID,
-                fakeArchivePath
-            );
+                await _logs.LogStatusEnd(logID, exitCode: 0);
+                await _jobs.MarkReadyToExtract(job.DemoDownloadJobID, fakeArchivePath);
+
+                _logger.LogInformation(
+                    "Marked job {JobID} as ReadyToExtract with archive path {ArchivePath}",
+                    job.DemoDownloadJobID,
+                    fakeArchivePath
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error downloading demo for job {JobID}", job.DemoDownloadJobID);
+                await _logs.LogStatusEnd(logID, exitCode: 1, errorMessage: ex.Message);
+                continue;
+            }
 
         }
 
