@@ -7,18 +7,18 @@ namespace WHLTV.DemoDownload.Worker.Workers;
 public sealed class DownloadWorker : BackgroundService
 {
     private readonly DemoDownloadJobRepository _jobs;
-    private readonly DemoPipelineLogsRepository _logs;
+    private readonly DemoPipelineLogsRepository _dbLogger;
     private readonly ProcessRunner _processRunner;
     private readonly ILogger<DownloadWorker> _logger;
 
     public DownloadWorker(
         DemoDownloadJobRepository jobs,
-        DemoPipelineLogsRepository logs,
+        DemoPipelineLogsRepository dbLogger,
         ProcessRunner processRunner,
         ILogger<DownloadWorker> logger)
     {
         _jobs = jobs;
-        _logs = logs;
+        _dbLogger = dbLogger;
         _processRunner = processRunner;
         _logger = logger;
     }
@@ -41,7 +41,7 @@ public sealed class DownloadWorker : BackgroundService
                 job.DemoDownloadJobID,
                 job.MatchID
             );
-            var logID = await _logs.LogStatusStart(PipelineEntityType.DemoDownloadJob
+            var logID = await _dbLogger.LogStatusStart(PipelineEntityType.DemoDownloadJob
                                                  , job.DemoDownloadJobID
                                                  , DemoDownloadStatus.Downloading.ToString()
                                                  , PipelineStageStatus.Started);
@@ -52,7 +52,7 @@ public sealed class DownloadWorker : BackgroundService
                 var fakeArchivePath = $"demo-archives/job-{job.DemoDownloadJobID}/demo.rar";
                 await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
 
-                await _logs.LogStatusEnd(logID, exitCode: 0);
+                await _dbLogger.LogStatusEnd(logID, exitCode: 0);
                 await _jobs.MarkReadyToExtract(job.DemoDownloadJobID, fakeArchivePath);
 
                 _logger.LogInformation(
@@ -64,7 +64,7 @@ public sealed class DownloadWorker : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error downloading demo for job {JobID}", job.DemoDownloadJobID);
-                await _logs.LogStatusEnd(logID, exitCode: 1, errorMessage: ex.Message);
+                await _dbLogger.LogStatusEnd(logID, exitCode: 1, errorMessage: ex.Message);
                 continue;
             }
 
