@@ -11,7 +11,7 @@ from selenium.webdriver.chrome.service import Service
 DOWNLOAD_DIR = Path(os.getenv("DOWNLOAD_DIR", "./DemoFiles")).resolve()
 
 
-def wait_for_download(download_dir: Path, timeout_seconds: int = 180) -> Path:
+def wait_for_download(download_dir: Path, timeout_seconds: int = 300) -> Path:
     end_time = time.time() + timeout_seconds
 
     while time.time() < end_time:
