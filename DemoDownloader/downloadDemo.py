@@ -89,4 +89,17 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         raise ValueError("Usage: python download_demo_browser.py <hltv-demo-download-url>")
 
-    download_demo_zip(sys.argv[1])
+    try:
+        download_demo_zip(sys.argv[1])
+    except TimeoutError as e:
+        print(f"Download failed or timed out: {e}")
+        # Cleanup partial downloads
+        partial_patterns = [".crdownload", ".com.google.Chrome"]
+        for p in DOWNLOAD_DIR.iterdir():
+            if p.is_file() and (p.name.endswith(".crdownload") or p.name.startswith(".com.google.Chrome")):
+                try:
+                    print(f"Removing partial file: {p}")
+                    p.unlink()
+                except Exception as cleanup_err:
+                    print(f"Failed to remove {p}: {cleanup_err}")
+        raise
