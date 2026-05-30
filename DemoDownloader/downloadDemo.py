@@ -4,14 +4,11 @@ from pathlib import Path
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.service import Service
-
 
 DOWNLOAD_DIR = Path(os.getenv("DOWNLOAD_DIR", "./DemoFiles")).resolve()
 
 
-def wait_for_download(download_dir: Path, timeout_seconds: int = 300) -> Path:
+def wait_for_download(download_dir: Path, timeout_seconds: int = 900) -> Path:
     end_time = time.time() + timeout_seconds
 
     while time.time() < end_time:
@@ -70,7 +67,6 @@ def download_demo_zip(url: str) -> Path:
     chrome_options.add_experimental_option("prefs", prefs)
 
     driver = webdriver.Chrome(
-        service=Service(ChromeDriverManager().install()),
         options=chrome_options,
     )
 
