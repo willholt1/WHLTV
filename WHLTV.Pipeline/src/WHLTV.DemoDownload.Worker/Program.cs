@@ -2,6 +2,7 @@ using WHLTV.DemoDownload.Worker.Workers;
 using WHLTV.Pipeline.DataAccess.Connection;
 using WHLTV.Pipeline.DataAccess.Repositories;
 using WHLTV.Pipeline.Infrastructure.Processes;
+using WHLTV.Pipeline.Infrastructure.Docker;
 using DotNetEnv;
 
 Env.Load();
@@ -23,6 +24,7 @@ builder.Services.AddSingleton<DemoDownloadJobRepository>();
 builder.Services.AddSingleton<DemoPipelineLogsRepository>();
 
 builder.Services.AddSingleton<ProcessRunner>();
+builder.Services.AddSingleton<DockerRunner>();
 builder.Services.AddHostedService<DownloadWorker>();
 
 var host = builder.Build();
