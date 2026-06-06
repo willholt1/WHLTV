@@ -1,23 +1,21 @@
-protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+namespace WHLTV.DemoPipeline.Worker.Workers;
+
+public sealed class CleanupWorker : BackgroundService
 {
-    while (!stoppingToken.IsCancellationRequested)
+    private readonly ILogger<CleanupWorker> _logger;
+
+    public CleanupWorker(ILogger<CleanupWorker> logger)
     {
-        var job = await _repository.TryClaimNextJob();
+        _logger = logger;
+    }
 
-        if (job is null)
-        {
-            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
-            continue;
-        }
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        _logger.LogInformation("Cleanup worker is currently a placeholder and is not configured to process jobs.");
 
-        try
+        while (!stoppingToken.IsCancellationRequested)
         {
-            await ProcessJob(job, stoppingToken);
-            await _repository.MarkNextStatus(job.Id);
-        }
-        catch (Exception ex)
-        {
-            await _repository.MarkFailed(job.Id, ex.Message);
+            await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
         }
     }
 }

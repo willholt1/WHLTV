@@ -2,23 +2,36 @@ using WHLTV.DemoPipeline.Worker.Workers;
 using WHLTV.Pipeline.DataAccess.Connection;
 using WHLTV.Pipeline.DataAccess.Repositories;
 using WHLTV.Pipeline.Infrastructure.Processes;
+using WHLTV.Pipeline.Infrastructure.Docker;
+using DotNetEnv;
+
+Env.Load();
+
+var dbhost = Environment.GetEnvironmentVariable("DB_HOST");
+var dbport = Environment.GetEnvironmentVariable("DB_PORT");
+var db = Environment.GetEnvironmentVariable("DB_NAME");
+var dbuser = Environment.GetEnvironmentVariable("DB_USER");
+var dbpass = Environment.GetEnvironmentVariable("DB_PASSWORD");
+
 
 var builder = Host.CreateApplicationBuilder(args);
 
-var connectionString = builder.Configuration.GetConnectionString("WHLTV")
-    ?? throw new InvalidOperationException("Missing WHLTV connection string.");
+var connectionString =
+    $"Host={dbhost};Port={dbport};Database={db};Username={dbuser};Password={dbpass}";
 
 builder.Services.AddSingleton(new DbConnectionFactory(connectionString));
-
 builder.Services.AddSingleton<DemoDownloadJobRepository>();
-builder.Services.AddSingleton<DemoFileJobRepository>();
+builder.Services.AddSingleton<DemoPipelineLogsRepository>();
+
 builder.Services.AddSingleton<ProcessRunner>();
 
 builder.Services.AddHostedService<ExtractWorker>();
-builder.Services.AddHostedService<ConvertWorker>();
-builder.Services.AddHostedService<ValidateWorker>();
-builder.Services.AddHostedService<StoreWorker>();
-builder.Services.AddHostedService<CleanupWorker>();
+// builder.Services.AddHostedService<ConvertWorker>();
+// builder.Services.AddHostedService<ValidateWorker>();
+// builder.Services.AddHostedService<StoreWorker>();
+// builder.Services.AddHostedService<CleanupWorker>();
 
 var host = builder.Build();
+
 host.Run();
+

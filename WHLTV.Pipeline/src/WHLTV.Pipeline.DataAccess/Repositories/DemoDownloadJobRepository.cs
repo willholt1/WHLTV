@@ -65,6 +65,38 @@ public sealed class DemoDownloadJobRepository
         });
     }
 
+    public async Task<DemoDownloadJob?> TryClaimPendingExtractJob()
+    {
+        const string sql = """
+            WITH next_job AS (
+                SELECT demodownloadjobid
+                FROM dbo.tbldemodownloadjobs
+                WHERE status = 'ReadyToExtract'
+                ORDER BY createdat
+                FOR UPDATE SKIP LOCKED
+                LIMIT 1
+            )
+            UPDATE dbo.tbldemodownloadjobs AS j
+            SET status = 'Extracting',
+                attemptcount = j.attemptcount + 1,
+                updatedat = now()
+            FROM next_job
+            WHERE j.demodownloadjobid = next_job.demodownloadjobid
+            RETURNING
+                j.demodownloadjobid AS DemoDownloadJobID,
+                j.matchid AS MatchID,
+                j.demolink AS DemoLink,
+                j.status AS Status,
+                j.archiverelativepath AS ArchiveRelativePath,
+                j.errormessage AS ErrorMessage,
+                j.attemptcount AS AttemptCount;
+            """;
+
+        using var connection = _connectionFactory.CreateConnection();
+
+        return await connection.QuerySingleOrDefaultAsync<DemoDownloadJob>(sql);
+    }
+
     public async Task MarkExtracted(int demoDownloadJobId)
     {
         const string sql = """
