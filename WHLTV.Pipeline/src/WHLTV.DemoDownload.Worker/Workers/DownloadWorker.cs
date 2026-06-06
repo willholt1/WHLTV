@@ -13,18 +13,35 @@ public sealed class DownloadWorker : BackgroundService
     private readonly ProcessRunner _processRunner;
     private readonly DockerRunner _dockerRunner;
     private readonly ILogger<DownloadWorker> _logger;
+    private readonly string _outputDirectoryRoot;
+    private readonly string _imageName;
 
     public DownloadWorker(
         DemoDownloadJobRepository jobs,
         DemoPipelineLogsRepository dbLogger,
         ProcessRunner processRunner,
         DockerRunner dockerRunner,
+        IConfiguration configuration,
         ILogger<DownloadWorker> logger)
     {
         _jobs = jobs;
         _dbLogger = dbLogger;
         _processRunner = processRunner;
         _dockerRunner = dockerRunner;
+        _outputDirectoryRoot = configuration["DownloadWorker:OutputDirectory"]
+            ?? throw new InvalidOperationException("Missing required configuration: DownloadWorker:OutputDirectory");
+        _imageName = configuration["DownloadWorker:ImageName"]
+            ?? throw new InvalidOperationException("Missing required configuration: DownloadWorker:ImageName");
+
+        if (string.IsNullOrWhiteSpace(_outputDirectoryRoot))
+        {
+            throw new InvalidOperationException("Configuration DownloadWorker:OutputDirectory must not be empty.");
+        }
+
+        if (string.IsNullOrWhiteSpace(_imageName))
+        {
+            throw new InvalidOperationException("Configuration DownloadWorker:ImageName must not be empty.");
+        }
         _logger = logger;
     }
 
@@ -53,12 +70,12 @@ public sealed class DownloadWorker : BackgroundService
 
             try
             {
-                var outputDirectory = Path.GetFullPath($"demo-downloads/job-{job.DemoDownloadJobID}");
+                var outputDirectory = Path.GetFullPath(Path.Combine(_outputDirectoryRoot, $"job-{job.DemoDownloadJobID}"));
                 Directory.CreateDirectory(outputDirectory);
                 var result = await _dockerRunner.RunAsync(
                     new DockerRunOptions
                     {
-                        ImageName = "ghcr.io/willholt1/demo-downloader:1.5.0",
+                        ImageName = _imageName,
                         VolumeMounts =
                         {
                             [outputDirectory] = "/app/DemoFiles"
