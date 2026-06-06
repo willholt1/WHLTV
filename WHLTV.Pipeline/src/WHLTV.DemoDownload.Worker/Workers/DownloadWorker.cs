@@ -53,7 +53,6 @@ public sealed class DownloadWorker : BackgroundService
 
             try
             {
-
                 var outputDirectory = Path.GetFullPath($"demo-downloads/job-{job.DemoDownloadJobID}");
                 Directory.CreateDirectory(outputDirectory);
                 var result = await _dockerRunner.RunAsync(
@@ -67,7 +66,8 @@ public sealed class DownloadWorker : BackgroundService
                         Arguments =
                         {
                             job.DemoLink
-                        }
+                        },
+                        RemoveWhenFinished = true
                     },
                     stoppingToken
                 );
