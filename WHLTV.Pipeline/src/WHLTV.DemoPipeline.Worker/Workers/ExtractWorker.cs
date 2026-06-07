@@ -8,15 +8,22 @@ namespace WHLTV.DemoPipeline.Worker.Workers;
 public sealed class ExtractWorker : BackgroundService
 {
     private readonly DemoDownloadJobRepository _jobs;
+    private readonly ArchiveExtractor _archiveExtractor;
+    private readonly PathResolver _pathResolver;
     private readonly DemoPipelineLogsRepository _dbLogger;
     private readonly ILogger<ExtractWorker> _logger;
 
     public ExtractWorker(
         DemoDownloadJobRepository jobs,
+        ArchiveExtractor archiveExtractor,
+        PathResolver pathResolver,
         DemoPipelineLogsRepository dbLogger,
-        ILogger<ExtractWorker> logger)
+        ILogger<ExtractWorker> logger
+    )
     {
         _jobs = jobs;
+        _archiveExtractor = archiveExtractor;
+        _pathResolver = pathResolver;
         _dbLogger = dbLogger;
         _logger = logger;
     }
@@ -46,9 +53,41 @@ public sealed class ExtractWorker : BackgroundService
 
             try
             {
-                Console.WriteLine($"Extracting demo for job {job.DemoDownloadJobID} from archive path {job.ArchiveRelativePath}");
-                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken); // Simulate work
-                var exitCode = 0; // Simulate success
+                _logger.LogInformation(
+                    "Extracting demo for job {JobID} from archive path {ArchivePath}",
+                    job.DemoDownloadJobID,
+                    job.ArchiveRelativePath
+                );
+
+                string archiveFullPath = _pathResolver.GetImportPath(job.ArchiveRelativePath);
+                string extractFullPath = _pathResolver.GetWorkPath($"extracted/job-{job.DemoDownloadJobID}");
+
+                Directory.CreateDirectory(extractFullPath);
+
+                IReadOnlyList<string> extractedDemoFullPaths = await _archiveExtractor.ExtractRarAsync(
+                                                                                        archiveFullPath
+                                                                                        , extractFullPath
+                                                                                        , stoppingToken
+                                                                                        );
+
+                if (extractedDemoFullPaths.Count == 0)
+                {
+                    throw new InvalidOperationException(
+                        $"No .dem files were extracted for job {job.DemoDownloadJobID}.");
+                }
+
+                foreach (var demoFullPath in extractedDemoFullPaths)
+                {
+                    string fileName = Path.GetFileName(demoFullPath);
+                    string demoRelativePath = $"extracted/job-{job.DemoDownloadJobID}/{fileName}";
+
+                    // TODO: add job for each extracted demo file to tblDemoFileJobs
+
+                    _logger.LogInformation("Created demo file job for {DemoRelativePath}", demoRelativePath);
+
+                }
+
+                await _downloadJobs.MarkExtracted(job.DemoDownloadJobID);
 
                 if (exitCode == 0)
                 {
@@ -64,8 +103,6 @@ public sealed class ExtractWorker : BackgroundService
                     await _jobs.MarkFailed(job.DemoDownloadJobID, errorMsg);
                     _logger.LogWarning(errorMsg);
                 }
-
-                await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
             }
             catch (Exception ex)
             {

@@ -97,6 +97,8 @@ public sealed class DemoDownloadJobRepository
         return await connection.QuerySingleOrDefaultAsync<DemoDownloadJob>(sql);
     }
 
+    // TODO: method to add jobs for extracted demo files to tblDemoFileJobs
+
     public async Task MarkExtracted(int demoDownloadJobId)
     {
         const string sql = """

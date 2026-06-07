@@ -3,6 +3,7 @@ using WHLTV.Pipeline.DataAccess.Connection;
 using WHLTV.Pipeline.DataAccess.Repositories;
 using WHLTV.Pipeline.Infrastructure.Processes;
 using WHLTV.Pipeline.Infrastructure.Docker;
+using WHLTV.Pipeline.Infrastructure.Archives;
 using DotNetEnv;
 
 Env.Load();
@@ -24,6 +25,12 @@ builder.Services.AddSingleton<DemoDownloadJobRepository>();
 builder.Services.AddSingleton<DemoPipelineLogsRepository>();
 
 builder.Services.AddSingleton<ProcessRunner>();
+builder.Services.AddSingleton<ArchiveExtractor>();
+
+builder.Services.Configure<StorageOptions>(
+    builder.Configuration.GetSection("Storage")
+);
+builder.Services.AddSingleton<PathResolver>();
 
 builder.Services.AddHostedService<ExtractWorker>();
 // builder.Services.AddHostedService<ConvertWorker>();
