@@ -1,7 +1,7 @@
 using WHLTV.Pipeline.DataAccess.Repositories;
-using WHLTV.Pipeline.Infrastructure.Processes;
 using WHLTV.Pipeline.Domain.Enums;
-using System.Reflection.Metadata.Ecma335;
+using WHLTV.Pipeline.Infrastructure.Archives;
+using WHLTV.Pipeline.Infrastructure.Storage;
 
 namespace WHLTV.DemoPipeline.Worker.Workers;
 
@@ -53,11 +53,18 @@ public sealed class ExtractWorker : BackgroundService
 
             try
             {
+                if (string.IsNullOrWhiteSpace(job.ArchiveRelativePath))
+                {
+                    throw new InvalidOperationException(
+                        $"Job {job.DemoDownloadJobID} is missing ArchiveRelativePath.");
+                }
+
                 _logger.LogInformation(
                     "Extracting demo for job {JobID} from archive path {ArchivePath}",
                     job.DemoDownloadJobID,
                     job.ArchiveRelativePath
                 );
+
 
                 string archiveFullPath = _pathResolver.GetImportPath(job.ArchiveRelativePath);
                 string extractFullPath = _pathResolver.GetWorkPath($"extracted/job-{job.DemoDownloadJobID}");
@@ -81,28 +88,20 @@ public sealed class ExtractWorker : BackgroundService
                     string fileName = Path.GetFileName(demoFullPath);
                     string demoRelativePath = $"extracted/job-{job.DemoDownloadJobID}/{fileName}";
 
-                    // TODO: add job for each extracted demo file to tblDemoFileJobs
+                    // TODO: validate that path points at .dem before creating job
+
+                    await _jobs.CreateDemoFileJob(job.DemoDownloadJobID, demoRelativePath);
 
                     _logger.LogInformation("Created demo file job for {DemoRelativePath}", demoRelativePath);
 
                 }
 
-                await _downloadJobs.MarkExtracted(job.DemoDownloadJobID);
+                await _jobs.MarkExtracted(job.DemoDownloadJobID);
+                _logger.LogInformation(
+                    "Marked job {JobID} as Extracted",
+                    job.DemoDownloadJobID
+                );
 
-                if (exitCode == 0)
-                {
-                    await _jobs.MarkExtracted(job.DemoDownloadJobID);
-                    _logger.LogInformation(
-                        "Marked job {JobID} as Extracted",
-                        job.DemoDownloadJobID
-                    );
-                }
-                else
-                {
-                    var errorMsg = $"Extract process failed with exit code {exitCode}. See logs for details.";
-                    await _jobs.MarkFailed(job.DemoDownloadJobID, errorMsg);
-                    _logger.LogWarning(errorMsg);
-                }
             }
             catch (Exception ex)
             {

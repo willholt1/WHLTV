@@ -97,7 +97,28 @@ public sealed class DemoDownloadJobRepository
         return await connection.QuerySingleOrDefaultAsync<DemoDownloadJob>(sql);
     }
 
-    // TODO: method to add jobs for extracted demo files to tblDemoFileJobs
+    public async Task CreateDemoFileJob(int demoDownloadJobId, string demoRelativePath)
+    {
+        const string sql = """
+            INSERT INTO tbldemofilejobs(
+                demodownloadjobid
+                ,demorelativepath
+            )
+            VALUES 
+            (
+                @DemoDownloadJobID,
+                @DemoRelativePath
+            );
+            """;
+
+        using var connection = _connectionFactory.CreateConnection();
+
+        await connection.ExecuteAsync(sql, new
+        {
+            DemoDownloadJobID = demoDownloadJobId,
+            DemoRelativePath = demoRelativePath
+        });
+    }
 
     public async Task MarkExtracted(int demoDownloadJobId)
     {

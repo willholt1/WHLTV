@@ -4,6 +4,7 @@ using WHLTV.Pipeline.DataAccess.Repositories;
 using WHLTV.Pipeline.Infrastructure.Processes;
 using WHLTV.Pipeline.Infrastructure.Docker;
 using WHLTV.Pipeline.Infrastructure.Archives;
+using WHLTV.Pipeline.Infrastructure.Storage;
 using DotNetEnv;
 
 Env.Load();
