@@ -26,6 +26,27 @@ services:
       - "8080:8080"
     depends_on:
       - db
+  demopipelineworker:
+    build:
+      context: ./WHLTV.Pipeline
+      dockerfile: src/WHLTV.DemoPipeline.Worker/Dockerfile
+    container_name: whltv-demo-pipeline-worker
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - ASPNETCORE_ENVIRONMENT=Production
+      - Storage__ImportRoot=${STORAGE_IMPORT_ROOT}
+      - Storage__WorkRoot=${STORAGE_WORK_ROOT}
+      - Storage__ParquetRoot=${STORAGE_PARQUET_ROOT}
+    volumes:
+      - ${HOST_IMPORT_PATH}:${STORAGE_IMPORT_ROOT}
+      - ${HOST_WORK_PATH}:${STORAGE_WORK_ROOT}
+      - ${HOST_PARQUET_PATH}:${STORAGE_PARQUET_ROOT}
+    depends_on:
+      - db
   frontend:
     build:
       context: ./Frontend
@@ -40,4 +61,3 @@ services:
 
 volumes:
   pgdata:
-  

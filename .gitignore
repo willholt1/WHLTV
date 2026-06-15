@@ -32,6 +32,7 @@ debug_hltv.html
 *.parquet
 *test*
 *.rar
+*.docker-data*
 
 # Python virtual environments
 .venv/

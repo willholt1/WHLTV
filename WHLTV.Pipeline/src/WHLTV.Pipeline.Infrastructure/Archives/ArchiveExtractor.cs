@@ -24,15 +24,18 @@ public sealed class ArchiveExtractor
             cancellationToken
         );
 
-        if (!result.Success)
+        var extractedDemos = Directory
+            .EnumerateFiles(outputDirectory, "*.dem", SearchOption.AllDirectories)
+            .ToList();
+
+        // 7z may return a warning exit code while still extracting usable files.
+        if (!result.Success && extractedDemos.Count == 0)
         {
             throw new InvalidOperationException(
                 $"Archive extraction failed: {result.StandardError}"
             );
         }
 
-        return Directory
-            .EnumerateFiles(outputDirectory, "*.dem", SearchOption.AllDirectories)
-            .ToList();
+        return extractedDemos;
     }
 }
