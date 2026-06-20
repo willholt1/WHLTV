@@ -45,4 +45,40 @@ public sealed class DemoFileJobRepository
 
         return await connection.QuerySingleOrDefaultAsync<DemoFileJob>(sql);
     }
+
+    public async Task MarkReadyToValidate(int demoFileJobId)
+    {
+        const string sql = """
+            UPDATE dbo.tbldemofilejobs
+            SET status = 'ReadyToValidate',
+                updatedat = now()
+            WHERE demofilejobid = @DemoFileJobID;
+            """;
+
+        using var connection = _connectionFactory.CreateConnection();
+
+        await connection.ExecuteAsync(sql, new
+        {
+            DemoFileJobID = demoFileJobId
+        });
+    }
+
+    public async Task MarkFailed(int demoFileJobId, string errorMessage)
+    {
+        const string sql = """
+            UPDATE dbo.tbldemofilejobs
+            SET status = 'Failed',
+                errormessage = @ErrorMessage,
+                updatedat = now()
+            WHERE demofilejobid = @DemoFileJobID;
+            """;
+
+        using var connection = _connectionFactory.CreateConnection();
+
+        await connection.ExecuteAsync(sql, new
+        {
+            DemoFileJobID = demoFileJobId,
+            ErrorMessage = errorMessage
+        });
+    }
 }

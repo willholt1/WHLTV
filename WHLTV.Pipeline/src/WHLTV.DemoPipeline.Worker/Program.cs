@@ -23,6 +23,7 @@ var connectionString =
 
 builder.Services.AddSingleton(new DbConnectionFactory(connectionString));
 builder.Services.AddSingleton<DemoDownloadJobRepository>();
+builder.Services.AddSingleton<DemoFileJobRepository>();
 builder.Services.AddSingleton<DemoPipelineLogsRepository>();
 
 builder.Services.AddSingleton<ProcessRunner>();
@@ -34,7 +35,7 @@ builder.Services.Configure<StorageOptions>(
 builder.Services.AddSingleton<PathResolver>();
 
 builder.Services.AddHostedService<ExtractWorker>();
-// builder.Services.AddHostedService<ConvertWorker>();
+builder.Services.AddHostedService<ConvertWorker>();
 // builder.Services.AddHostedService<ValidateWorker>();
 // builder.Services.AddHostedService<StoreWorker>();
 // builder.Services.AddHostedService<CleanupWorker>();
