@@ -54,7 +54,7 @@ public sealed class DownloadWorker : BackgroundService
             if (job is null)
             {
                 _logger.LogInformation("No pending download jobs found.");
-                await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
                 continue;
             }
 
@@ -110,7 +110,7 @@ public sealed class DownloadWorker : BackgroundService
                     _logger.LogWarning(errorMsg);
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
             }
             catch (Exception ex)
             {

@@ -37,7 +37,7 @@ public sealed class ExtractWorker : BackgroundService
             if (job is null)
             {
                 _logger.LogInformation("No pending extract jobs found.");
-                await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
                 continue;
             }
 
