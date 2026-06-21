@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict XIOvv0Dtbm6l2xtN6RxBqTCbLAA1yd6Y04rxSchqKRIn3PSIhb3jrB9kJZGBei8
+\restrict EM2Vq3hp6TbxxT0m6gIu8Q0mzHfabRa1lJiDyTqIeCS2zUcb7nV2HhQcRWWxjiY
 
 -- Dumped from database version 16.13 (Debian 16.13-1.pgdg13+1)
 -- Dumped by pg_dump version 18.3 (Homebrew)
@@ -34,6 +34,22 @@ CREATE SCHEMA dbo;
 
 
 --
+-- Name: demo_conversion_status; Type: TYPE; Schema: dbo; Owner: -
+--
+
+CREATE TYPE dbo.demo_conversion_status AS ENUM (
+    'ReadyToConvert',
+    'Converting',
+    'ReadyToValidate',
+    'Validating',
+    'ReadyToStore',
+    'Storing',
+    'Stored',
+    'Failed'
+);
+
+
+--
 -- Name: demo_download_status; Type: TYPE; Schema: dbo; Owner: -
 --
 
@@ -49,16 +65,11 @@ CREATE TYPE dbo.demo_download_status AS ENUM (
 
 
 --
--- Name: demo_file_status; Type: TYPE; Schema: dbo; Owner: -
+-- Name: parquet_file_status; Type: TYPE; Schema: dbo; Owner: -
 --
 
-CREATE TYPE dbo.demo_file_status AS ENUM (
-    'ReadyToConvert',
-    'Converting',
-    'ReadyToValidate',
-    'Validating',
-    'ReadyToStore',
-    'Storing',
+CREATE TYPE dbo.parquet_file_status AS ENUM (
+    'Created',
     'Stored',
     'Failed'
 );
@@ -70,7 +81,8 @@ CREATE TYPE dbo.demo_file_status AS ENUM (
 
 CREATE TYPE dbo.pipeline_entity_type AS ENUM (
     'DemoDownloadJob',
-    'DemoFileJob'
+    'DemoConversionJob',
+    'ParquetFile'
 );
 
 
@@ -730,6 +742,45 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: tbldemoconversionjobs; Type: TABLE; Schema: dbo; Owner: -
+--
+
+CREATE TABLE dbo.tbldemoconversionjobs (
+    democonversionjobid integer NOT NULL,
+    demodownloadjobid integer NOT NULL,
+    extractedfolderrelativepath text NOT NULL,
+    parquettempfolderrelativepath text,
+    status dbo.demo_conversion_status DEFAULT 'ReadyToConvert'::dbo.demo_conversion_status NOT NULL,
+    attemptcount integer DEFAULT 0 NOT NULL,
+    errormessage text,
+    createdat timestamp without time zone DEFAULT now() NOT NULL,
+    startedat timestamp without time zone,
+    completedat timestamp without time zone,
+    updatedat timestamp without time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: tbldemoconversionjobs_democonversionjobid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
+--
+
+CREATE SEQUENCE dbo.tbldemoconversionjobs_democonversionjobid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: tbldemoconversionjobs_democonversionjobid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
+--
+
+ALTER SEQUENCE dbo.tbldemoconversionjobs_democonversionjobid_seq OWNED BY dbo.tbldemoconversionjobs.democonversionjobid;
+
+
+--
 -- Name: tbldemodownloadjobs; Type: TABLE; Schema: dbo; Owner: -
 --
 
@@ -769,18 +820,15 @@ ALTER SEQUENCE dbo.tbldemodownloadjobs_demodownloadjobid_seq OWNED BY dbo.tbldem
 
 
 --
--- Name: tbldemofilejobs; Type: TABLE; Schema: dbo; Owner: -
+-- Name: tbldemoparquetfiles; Type: TABLE; Schema: dbo; Owner: -
 --
 
-CREATE TABLE dbo.tbldemofilejobs (
-    demofilejobid integer NOT NULL,
-    demodownloadjobid integer NOT NULL,
+CREATE TABLE dbo.tbldemoparquetfiles (
+    demoparquetfileid integer NOT NULL,
+    democonversionjobid integer NOT NULL,
     matchmapid integer,
-    demoid integer,
-    demorelativepath text NOT NULL,
-    parquettemprelativepath text,
     parquetfinalrelativepath text,
-    status dbo.demo_file_status DEFAULT 'ReadyToConvert'::dbo.demo_file_status NOT NULL,
+    status dbo.parquet_file_status DEFAULT 'Created'::dbo.parquet_file_status NOT NULL,
     attemptcount integer DEFAULT 0 NOT NULL,
     errormessage text,
     createdat timestamp without time zone DEFAULT now() NOT NULL,
@@ -791,10 +839,10 @@ CREATE TABLE dbo.tbldemofilejobs (
 
 
 --
--- Name: tbldemofilejobs_demofilejobid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
+-- Name: tbldemoparquetfiles_demoparquetfileid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
 --
 
-CREATE SEQUENCE dbo.tbldemofilejobs_demofilejobid_seq
+CREATE SEQUENCE dbo.tbldemoparquetfiles_demoparquetfileid_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
@@ -804,10 +852,10 @@ CREATE SEQUENCE dbo.tbldemofilejobs_demofilejobid_seq
 
 
 --
--- Name: tbldemofilejobs_demofilejobid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
+-- Name: tbldemoparquetfiles_demoparquetfileid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
 --
 
-ALTER SEQUENCE dbo.tbldemofilejobs_demofilejobid_seq OWNED BY dbo.tbldemofilejobs.demofilejobid;
+ALTER SEQUENCE dbo.tbldemoparquetfiles_demoparquetfileid_seq OWNED BY dbo.tbldemoparquetfiles.demoparquetfileid;
 
 
 --
@@ -1290,6 +1338,13 @@ ALTER SEQUENCE dbo.tblvetoactions_vetoactionid_seq OWNED BY dbo.tblvetoactions.v
 
 
 --
+-- Name: tbldemoconversionjobs democonversionjobid; Type: DEFAULT; Schema: dbo; Owner: -
+--
+
+ALTER TABLE ONLY dbo.tbldemoconversionjobs ALTER COLUMN democonversionjobid SET DEFAULT nextval('dbo.tbldemoconversionjobs_democonversionjobid_seq'::regclass);
+
+
+--
 -- Name: tbldemodownloadjobs demodownloadjobid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
@@ -1297,10 +1352,10 @@ ALTER TABLE ONLY dbo.tbldemodownloadjobs ALTER COLUMN demodownloadjobid SET DEFA
 
 
 --
--- Name: tbldemofilejobs demofilejobid; Type: DEFAULT; Schema: dbo; Owner: -
+-- Name: tbldemoparquetfiles demoparquetfileid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
-ALTER TABLE ONLY dbo.tbldemofilejobs ALTER COLUMN demofilejobid SET DEFAULT nextval('dbo.tbldemofilejobs_demofilejobid_seq'::regclass);
+ALTER TABLE ONLY dbo.tbldemoparquetfiles ALTER COLUMN demoparquetfileid SET DEFAULT nextval('dbo.tbldemoparquetfiles_demoparquetfileid_seq'::regclass);
 
 
 --
@@ -1402,6 +1457,14 @@ ALTER TABLE ONLY dbo.tblvetoactions ALTER COLUMN vetoactionid SET DEFAULT nextva
 
 
 --
+-- Name: tbldemoconversionjobs tbldemoconversionjobs_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
+--
+
+ALTER TABLE ONLY dbo.tbldemoconversionjobs
+    ADD CONSTRAINT tbldemoconversionjobs_pkey PRIMARY KEY (democonversionjobid);
+
+
+--
 -- Name: tbldemodownloadjobs tbldemodownloadjobs_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
@@ -1410,11 +1473,11 @@ ALTER TABLE ONLY dbo.tbldemodownloadjobs
 
 
 --
--- Name: tbldemofilejobs tbldemofilejobs_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
+-- Name: tbldemoparquetfiles tbldemoparquetfiles_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
-ALTER TABLE ONLY dbo.tbldemofilejobs
-    ADD CONSTRAINT tbldemofilejobs_pkey PRIMARY KEY (demofilejobid);
+ALTER TABLE ONLY dbo.tbldemoparquetfiles
+    ADD CONSTRAINT tbldemoparquetfiles_pkey PRIMARY KEY (demoparquetfileid);
 
 
 --
@@ -1589,5 +1652,5 @@ ALTER TABLE ONLY dbo.tblevents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict XIOvv0Dtbm6l2xtN6RxBqTCbLAA1yd6Y04rxSchqKRIn3PSIhb3jrB9kJZGBei8
+\unrestrict EM2Vq3hp6TbxxT0m6gIu8Q0mzHfabRa1lJiDyTqIeCS2zUcb7nV2HhQcRWWxjiY
 
