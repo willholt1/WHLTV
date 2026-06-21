@@ -35,7 +35,7 @@ builder.Services.Configure<StorageOptions>(
 builder.Services.AddSingleton<PathResolver>();
 
 builder.Services.AddHostedService<ExtractWorker>();
-builder.Services.AddHostedService<ConvertWorker>();
+// builder.Services.AddHostedService<ConvertWorker>();
 // builder.Services.AddHostedService<ValidateWorker>();
 // builder.Services.AddHostedService<StoreWorker>();
 // builder.Services.AddHostedService<CleanupWorker>();

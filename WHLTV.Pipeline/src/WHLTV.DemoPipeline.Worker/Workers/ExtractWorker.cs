@@ -83,29 +83,21 @@ public sealed class ExtractWorker : BackgroundService
                         $"No .dem files were extracted for job {job.DemoDownloadJobID}.");
                 }
 
-                foreach (var demoFullPath in extractedDemoFullPaths)
-                {
-                    string fileName = Path.GetFileName(demoFullPath);
-                    string demoRelativePath = $"extracted/job-{job.DemoDownloadJobID}/{fileName}";
-
-                    // TODO: validate that path points at .dem before creating job
-
-                    await _jobs.CreateDemoFileJob(job.DemoDownloadJobID, demoRelativePath);
-
-                    _logger.LogInformation("Created demo file job for {DemoRelativePath}", demoRelativePath);
-
-                }
+                string extractedFolderRelativePath = $"extracted/job-{job.DemoDownloadJobID}";
+                await _jobs.CreateDemoConversionJob(job.DemoDownloadJobID, extractedFolderRelativePath);
+                _logger.LogInformation("Created demo convert job for {DemoRelativePath}", extractedFolderRelativePath);
 
                 await _jobs.MarkExtracted(job.DemoDownloadJobID);
                 _logger.LogInformation(
                     "Marked job {JobID} as Extracted",
                     job.DemoDownloadJobID
                 );
+                await _dbLogger.LogStatusEnd(logID, exitCode: 0);
 
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error downloading demo for job {JobID}", job.DemoDownloadJobID);
+                _logger.LogError(ex, "Error extracting demo for job {JobID}", job.DemoDownloadJobID);
                 await _dbLogger.LogStatusEnd(logID, exitCode: 1, errorMessage: ex.Message);
                 await _jobs.MarkFailed(job.DemoDownloadJobID, ex.Message);
                 continue;

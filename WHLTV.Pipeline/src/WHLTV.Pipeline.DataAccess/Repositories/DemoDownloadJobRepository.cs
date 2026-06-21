@@ -97,17 +97,17 @@ public sealed class DemoDownloadJobRepository
         return await connection.QuerySingleOrDefaultAsync<DemoDownloadJob>(sql);
     }
 
-    public async Task CreateDemoFileJob(int demoDownloadJobId, string demoRelativePath)
+    public async Task CreateDemoConversionJob(int demoDownloadJobId, string extractedFolderRelativePath)
     {
         const string sql = """
-            INSERT INTO tbldemofilejobs(
+            INSERT INTO tbldemoconversionjobs(
                 demodownloadjobid
-                ,demorelativepath
+                ,extractedfolderrelativepath
             )
             VALUES 
             (
                 @DemoDownloadJobID,
-                @DemoRelativePath
+                @ExtractedFolderRelativePath
             );
             """;
 
@@ -116,7 +116,7 @@ public sealed class DemoDownloadJobRepository
         await connection.ExecuteAsync(sql, new
         {
             DemoDownloadJobID = demoDownloadJobId,
-            DemoRelativePath = demoRelativePath
+            ExtractedFolderRelativePath = extractedFolderRelativePath
         });
     }
 
