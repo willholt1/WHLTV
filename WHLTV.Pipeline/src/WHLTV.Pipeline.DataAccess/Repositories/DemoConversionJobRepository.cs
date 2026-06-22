@@ -4,80 +4,79 @@ using WHLTV.Pipeline.Domain.Jobs;
 
 namespace WHLTV.Pipeline.DataAccess.Repositories;
 
-public sealed class DemoFileJobRepository
+public sealed class DemoConversionJobRepository
 {
     private readonly DbConnectionFactory _connectionFactory;
 
-    public DemoFileJobRepository(DbConnectionFactory connectionFactory)
+    public DemoConversionJobRepository(DbConnectionFactory connectionFactory)
     {
         _connectionFactory = connectionFactory;
     }
 
-    public async Task<DemoFileJob?> TryClaimPendingConvertJob()
+    public async Task<DemoConversionJob?> TryClaimPendingConvertJob()
     {
         const string sql = """
             WITH next_job AS (
-                SELECT demofilejobid
-                FROM dbo.tbldemofilejobs
+                SELECT democonversionjobid
+                FROM dbo.tbldemoconversionjobs
                 WHERE status = 'ReadyToConvert'
                 ORDER BY createdat
                 FOR UPDATE SKIP LOCKED
                 LIMIT 1
             )
-            UPDATE dbo.tbldemofilejobs AS j
+            UPDATE dbo.tbldemoconversionjobs AS j
             SET status = 'Converting',
                 startedat = now(),
                 attemptcount = j.attemptcount + 1,
                 updatedat = now()
             FROM next_job
-            WHERE j.demofilejobid = next_job.demofilejobid
+            WHERE j.democonversionjobid = next_job.democonversionjobid
             RETURNING
-                j.demofilejobid AS DemoFileJobID,
+                j.democonversionjobid AS DemoConversionJobID,
                 j.demodownloadjobid AS DemoDownloadJobID,
-                j.demorelativepath AS DemoRelativePath,
-                j.parquettemprelativepath AS ParquetTempRelativePath,
-                j.parquetfinalrelativepath AS ParquetFinalRelativePath,
+                j.extractedfolderrelativepath AS ExtractedFolderRelativePath,
+                j.parquettempfolderrelativepath AS ParquetTempFolderRelativePath,
                 j.status AS Status,
                 j.attemptcount AS AttemptCount;
             """;
 
         using var connection = _connectionFactory.CreateConnection();
 
-        return await connection.QuerySingleOrDefaultAsync<DemoFileJob>(sql);
+        return await connection.QuerySingleOrDefaultAsync<DemoConversionJob>(sql);
     }
 
-    public async Task MarkReadyToValidate(int demoFileJobId)
+    public async Task MarkReadyToValidate(int demoConversionJobId)
     {
         const string sql = """
-            UPDATE dbo.tbldemofilejobs
+            UPDATE dbo.tbldemoconversionjobs
             SET status = 'ReadyToValidate',
                 updatedat = now()
-            WHERE demofilejobid = @DemoFileJobID;
+            WHERE democonversionjobid = @DemoConversionJobID;
             """;
 
         using var connection = _connectionFactory.CreateConnection();
 
         await connection.ExecuteAsync(sql, new
         {
-            DemoFileJobID = demoFileJobId
+            DemoConversionJobID = demoConversionJobId
         });
     }
 
-    public async Task MarkFailed(int demoFileJobId, string errorMessage)
+    public async Task MarkFailed(int demoConversionJobId, string errorMessage)
     {
         const string sql = """
-            UPDATE dbo.tbldemofilejobs
+            UPDATE dbo.tbldemoconversionjobs
             SET status = 'Failed',
                 errormessage = @ErrorMessage,
                 updatedat = now()
-            WHERE demofilejobid = @DemoFileJobID;
+            WHERE democonversionjobid = @DemoConversionJobID;
             """;
 
         using var connection = _connectionFactory.CreateConnection();
 
         await connection.ExecuteAsync(sql, new
         {
-            DemoFileJobID = demoFileJobId,
+            DemoConversionJobID = demoConversionJobId,
             ErrorMessage = errorMessage
         });
     }

@@ -1,6 +1,6 @@
 namespace WHLTV.Pipeline.Domain.Enums
 {
-    public enum DemoFileStatus
+    public enum DemoConversionStatus
     {
         ReadyToConvert,
         Converting,

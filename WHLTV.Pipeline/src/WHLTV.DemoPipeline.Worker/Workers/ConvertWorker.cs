@@ -7,13 +7,13 @@ namespace WHLTV.DemoPipeline.Worker.Workers;
 
 public sealed class ConvertWorker : BackgroundService
 {
-    private readonly DemoFileJobRepository _jobs;
+    private readonly DemoConversionJobRepository _jobs;
     private readonly PathResolver _pathResolver;
     private readonly DemoPipelineLogsRepository _dbLogger;
     private readonly ILogger<ConvertWorker> _logger;
 
     public ConvertWorker(
-        DemoFileJobRepository jobs,
+        DemoConversionJobRepository jobs,
         PathResolver pathResolver,
         DemoPipelineLogsRepository dbLogger,
         ILogger<ConvertWorker> logger
@@ -40,11 +40,11 @@ public sealed class ConvertWorker : BackgroundService
 
             _logger.LogInformation(
                 "Claimed convert job {JobID}",
-                job.DemoFileJobID
+                job.DemoConversionJobID
             );
-            var logID = await _dbLogger.LogStatusStart(PipelineEntityType.DemoFileJob
-                                                 , job.DemoFileJobID
-                                                 , DemoFileStatus.Converting.ToString()
+            var logID = await _dbLogger.LogStatusStart(PipelineEntityType.DemoConversionJob
+                                                 , job.DemoConversionJobID
+                                                 , DemoConversionStatus.Converting.ToString()
                                                  , PipelineStageStatus.Started);
 
             try
@@ -52,18 +52,20 @@ public sealed class ConvertWorker : BackgroundService
                 // Mock conversion
                 await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
 
-                await _jobs.MarkReadyToValidate(job.DemoFileJobID);
+                await _jobs.MarkReadyToValidate(job.DemoConversionJobID);
                 _logger.LogInformation(
                     "Marked job {JobID} as Ready to Validate",
-                    job.DemoFileJobID
+                    job.DemoConversionJobID
                 );
+
+                await _dbLogger.LogStatusEnd(logID, exitCode: 0);
 
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error converting demo for job {JobID}", job.DemoFileJobID);
+                _logger.LogError(ex, "Error converting demo for job {JobID}", job.DemoConversionJobID);
                 await _dbLogger.LogStatusEnd(logID, exitCode: 1, errorMessage: ex.Message);
-                await _jobs.MarkFailed(job.DemoFileJobID, ex.Message);
+                await _jobs.MarkFailed(job.DemoConversionJobID, ex.Message);
                 continue;
             }
 
