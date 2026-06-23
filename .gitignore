@@ -40,3 +40,4 @@ venv/
 
 # Misc
 .DS_Store
+*/publish/*
