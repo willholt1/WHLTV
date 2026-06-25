@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict EM2Vq3hp6TbxxT0m6gIu8Q0mzHfabRa1lJiDyTqIeCS2zUcb7nV2HhQcRWWxjiY
+\restrict 2CVKbERhg9BMum5q9gygjUvhk52TSpcPW1dxmQ5oQSz4OWYmpDT4JMgE7aW97LT
 
 -- Dumped from database version 16.13 (Debian 16.13-1.pgdg13+1)
 -- Dumped by pg_dump version 18.3 (Homebrew)
@@ -827,6 +827,7 @@ CREATE TABLE dbo.tbldemoparquetfiles (
     demoparquetfileid integer NOT NULL,
     democonversionjobid integer NOT NULL,
     matchmapid integer,
+    parquettemprelativepath text,
     parquetfinalrelativepath text,
     status dbo.parquet_file_status DEFAULT 'Created'::dbo.parquet_file_status NOT NULL,
     attemptcount integer DEFAULT 0 NOT NULL,
@@ -1652,5 +1653,5 @@ ALTER TABLE ONLY dbo.tblevents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict EM2Vq3hp6TbxxT0m6gIu8Q0mzHfabRa1lJiDyTqIeCS2zUcb7nV2HhQcRWWxjiY
+\unrestrict 2CVKbERhg9BMum5q9gygjUvhk52TSpcPW1dxmQ5oQSz4OWYmpDT4JMgE7aW97LT
 
