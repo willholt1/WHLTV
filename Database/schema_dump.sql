@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 2CVKbERhg9BMum5q9gygjUvhk52TSpcPW1dxmQ5oQSz4OWYmpDT4JMgE7aW97LT
+\restrict ZG80D4TWDsL9EZuyoknZFybJnhz2jmvhxL5YsZ3aOmW2ebCy3RFORpsO0MVVi9v
 
 -- Dumped from database version 16.13 (Debian 16.13-1.pgdg13+1)
 -- Dumped by pg_dump version 18.3 (Homebrew)
@@ -1339,6 +1339,37 @@ ALTER SEQUENCE dbo.tblvetoactions_vetoactionid_seq OWNED BY dbo.tblvetoactions.v
 
 
 --
+-- Name: tblworkerconfig; Type: TABLE; Schema: dbo; Owner: -
+--
+
+CREATE TABLE dbo.tblworkerconfig (
+    workerconfigid integer NOT NULL,
+    workername text NOT NULL,
+    enabled boolean DEFAULT false NOT NULL
+);
+
+
+--
+-- Name: tblworkerconfig_workerconfigid_seq; Type: SEQUENCE; Schema: dbo; Owner: -
+--
+
+CREATE SEQUENCE dbo.tblworkerconfig_workerconfigid_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: tblworkerconfig_workerconfigid_seq; Type: SEQUENCE OWNED BY; Schema: dbo; Owner: -
+--
+
+ALTER SEQUENCE dbo.tblworkerconfig_workerconfigid_seq OWNED BY dbo.tblworkerconfig.workerconfigid;
+
+
+--
 -- Name: tbldemoconversionjobs democonversionjobid; Type: DEFAULT; Schema: dbo; Owner: -
 --
 
@@ -1455,6 +1486,13 @@ ALTER TABLE ONLY dbo.tblteams ALTER COLUMN teamid SET DEFAULT nextval('dbo.tblte
 --
 
 ALTER TABLE ONLY dbo.tblvetoactions ALTER COLUMN vetoactionid SET DEFAULT nextval('dbo.tblvetoactions_vetoactionid_seq'::regclass);
+
+
+--
+-- Name: tblworkerconfig workerconfigid; Type: DEFAULT; Schema: dbo; Owner: -
+--
+
+ALTER TABLE ONLY dbo.tblworkerconfig ALTER COLUMN workerconfigid SET DEFAULT nextval('dbo.tblworkerconfig_workerconfigid_seq'::regclass);
 
 
 --
@@ -1626,6 +1664,14 @@ ALTER TABLE ONLY dbo.tblvetoactions
 
 
 --
+-- Name: tblworkerconfig tblworkerconfig_pkey; Type: CONSTRAINT; Schema: dbo; Owner: -
+--
+
+ALTER TABLE ONLY dbo.tblworkerconfig
+    ADD CONSTRAINT tblworkerconfig_pkey PRIMARY KEY (workerconfigid);
+
+
+--
 -- Name: tblmatchmaps uq_matchmaps_matchid_mapid; Type: CONSTRAINT; Schema: dbo; Owner: -
 --
 
@@ -1653,5 +1699,5 @@ ALTER TABLE ONLY dbo.tblevents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 2CVKbERhg9BMum5q9gygjUvhk52TSpcPW1dxmQ5oQSz4OWYmpDT4JMgE7aW97LT
+\unrestrict ZG80D4TWDsL9EZuyoknZFybJnhz2jmvhxL5YsZ3aOmW2ebCy3RFORpsO0MVVi9v
 
