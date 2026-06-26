@@ -12,13 +12,15 @@ public sealed class ExtractWorker : BackgroundService
     private readonly PathResolver _pathResolver;
     private readonly DemoPipelineLogsRepository _dbLogger;
     private readonly ILogger<ExtractWorker> _logger;
+    private readonly AppConfigRepository _appConfigRepository;
 
     public ExtractWorker(
         DemoDownloadJobRepository jobs,
         ArchiveExtractor archiveExtractor,
         PathResolver pathResolver,
         DemoPipelineLogsRepository dbLogger,
-        ILogger<ExtractWorker> logger
+        ILogger<ExtractWorker> logger,
+        AppConfigRepository appConfigRepository
     )
     {
         _jobs = jobs;
@@ -26,12 +28,21 @@ public sealed class ExtractWorker : BackgroundService
         _pathResolver = pathResolver;
         _dbLogger = dbLogger;
         _logger = logger;
+        _appConfigRepository = appConfigRepository;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            var workerEnabled = await _appConfigRepository.GetWorkerEnabledStatus(PipelineWorkers.ExtractWorker);
+            if (workerEnabled == false)
+            {
+                _logger.LogInformation("Extract worker is disabled.");
+                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+                continue;
+            }
+
             var job = await _jobs.TryClaimPendingExtractJob();
 
             if (job is null)

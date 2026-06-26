@@ -25,6 +25,7 @@ builder.Services.AddSingleton(new DbConnectionFactory(connectionString));
 builder.Services.AddSingleton<DemoDownloadJobRepository>();
 builder.Services.AddSingleton<DemoConversionJobRepository>();
 builder.Services.AddSingleton<DemoPipelineLogsRepository>();
+builder.Services.AddSingleton<AppConfigRepository>();
 
 builder.Services.AddSingleton<ProcessRunner>();
 builder.Services.AddSingleton<ArchiveExtractor>();
