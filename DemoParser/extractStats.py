@@ -1,5 +1,5 @@
 import pandas as pd
-from . import constants as c
+from .services import conversion_constants as c
 from . import dbAccess as db
 
 def generate_scoreboard(match_id, parquet_path):

@@ -76,7 +76,7 @@ public sealed class ConvertWorker : BackgroundService
                                         job.DemoConversionJobID);
 
                 var result = await _processRunner.RunAsync("python",
-                                                            $"-m DemoParser.cli \"{extractedFolderFullPath}\"",
+                                                            $"-m DemoParser.convertToParquet \"{extractedFolderFullPath}\"",
                                                             stoppingToken);
 
                 if (!result.Success)

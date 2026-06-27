@@ -1,7 +1,3 @@
-from .demoToParquet import (
-    demoToParquet
-)
-
 from .extractStats import(
     generate_scoreboard
 ) 
