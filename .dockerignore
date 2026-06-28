@@ -1,0 +1,14 @@
+.git
+.gitignore
+.env
+venv/
+__pycache__/
+*.pyc
+DemoFiles/
+ParquetFiles/
+WHLTV.Pipeline/.docker-data/
+Frontend/
+HLTVScraper/
+DataAccessAPI/
+Database/
+WHLTV.Pipeline/publish/

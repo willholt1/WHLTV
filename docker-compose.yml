@@ -28,8 +28,8 @@ services:
       - db
   demopipelineworker:
     build:
-      context: ./WHLTV.Pipeline
-      dockerfile: src/WHLTV.DemoPipeline.Worker/Dockerfile
+      context: ..
+      dockerfile: WHLTV/WHLTV.Pipeline/src/WHLTV.DemoPipeline.Worker/Dockerfile
     container_name: whltv-demo-pipeline-worker
     environment:
       - DB_HOST=db
