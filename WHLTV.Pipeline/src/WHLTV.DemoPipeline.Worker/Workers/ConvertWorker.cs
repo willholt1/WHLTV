@@ -39,7 +39,7 @@ public sealed class ConvertWorker : BackgroundService
             var workerEnabled = await _appConfigRepository.GetWorkerEnabledStatus(PipelineWorkers.ConvertWorker);
             if (workerEnabled == false)
             {
-                _logger.LogInformation("Extract worker is disabled.");
+                _logger.LogInformation("Convert worker is disabled.");
                 await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
                 continue;
             }
@@ -75,17 +75,25 @@ public sealed class ConvertWorker : BackgroundService
                                         extractedFolderFullPath,
                                         job.DemoConversionJobID);
 
-                var result = await _processRunner.RunAsync("python",
-                                                            $"-m DemoParser.convertToParquet \"{extractedFolderFullPath}\"",
+                string parquetOutputFolderFullPath = _pathResolver.GetParquetPath($"job-{job.DemoConversionJobID}");
+                Directory.CreateDirectory(parquetOutputFolderFullPath);
+
+                var result = await _processRunner.RunAsync("python3",
+                                                            $"-m DemoParser.convertToParquet \"{extractedFolderFullPath}\" --output-dir \"{parquetOutputFolderFullPath}\"",
                                                             stoppingToken);
 
                 if (!result.Success)
                 {
+                    var errorMessage = string.IsNullOrWhiteSpace(result.StandardError)
+                        ? $"convertToParquet failed with exit code {result.ExitCode}"
+                        : result.StandardError;
+
                     await _jobs.MarkFailed(
                         job.DemoConversionJobID,
-                        result.StandardError
+                        errorMessage
                     );
-                    return;
+                    await _dbLogger.LogStatusEnd(logID, exitCode: result.ExitCode, errorMessage: errorMessage);
+                    continue;
                 }
 
                 var parquetFiles = JsonSerializer.Deserialize<ParquetFileResult[]>(
