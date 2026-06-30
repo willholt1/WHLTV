@@ -1,6 +1,6 @@
 import os
 
-from .parquet_conversion_service import demoToParquet
+from .parquet_conversion_service import COMBINE_BATCH_SIZE, DEFAULT_CHUNK_SIZE, demoToParquet
 
 
 def find_demo_files(folder: str) -> list[str]:
@@ -12,7 +12,12 @@ def find_demo_files(folder: str) -> list[str]:
     return demo_files
 
 
-def convert_folder_to_parquet(folder: str, output_dir: str = "ParquetFiles") -> list[dict]:
+def convert_folder_to_parquet(
+    folder: str,
+    output_dir: str = "ParquetFiles",
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
+    combine_batch_size: int = COMBINE_BATCH_SIZE,
+) -> list[dict]:
     if not os.path.isdir(folder):
         raise ValueError(f"{folder} is not a valid directory.")
 
@@ -20,7 +25,12 @@ def convert_folder_to_parquet(folder: str, output_dir: str = "ParquetFiles") -> 
     if not demo_files:
         raise ValueError(f"No .dem files found in {folder}.")
 
-    created_files = demoToParquet(demo_files, output_dir=output_dir)
+    created_files = demoToParquet(
+        demo_files,
+        output_dir=output_dir,
+        chunk_size=chunk_size,
+        combine_batch_size=combine_batch_size,
+    )
 
     return [
         {
