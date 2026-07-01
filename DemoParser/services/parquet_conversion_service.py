@@ -1,4 +1,5 @@
 from demoparser2 import DemoParser
+import gc
 import os
 import re
 import shutil
@@ -14,7 +15,13 @@ from models import enums
 from . import conversion_constants as c
 
 
-# Approximate number of rows written per temporary tick chunk. Tick data is the
+# Events where player state is sampled AT the event tick (T), not the tick
+# before (T-1). Determined empirically by comparing parse_event output with
+# parse_ticks at both offsets.
+_EVENTS_USING_CURRENT_TICK: frozenset[str] = frozenset({
+    "inferno_startburn",
+    "inferno_expire",
+})
 # main memory consumer, so it is parsed and flushed to disk in sub-sections of
 # roughly this many rows. Smaller values use less memory but require more parse
 # passes over each demo; larger values use more memory but fewer passes.
@@ -27,9 +34,62 @@ DEFAULT_CHUNK_SIZE = 50_000
 # bounded regardless of how large an individual event or tick file grows.
 COMBINE_BATCH_SIZE = 50_000
 
+# When True, emit per-chunk/per-piece write lines and RSS delta logs.
+# Leave False in production — the volume of output can fill Docker's pipe
+# buffer and cause the process to block on pipe_write with 0% CPU.
+VERBOSE_LOGGING = False
+
 
 def _log(message: str) -> None:
     print(message, file=sys.stderr)
+
+
+def _vlog(message: str) -> None:
+    """Log only when VERBOSE_LOGGING is enabled."""
+    if VERBOSE_LOGGING:
+        print(message, file=sys.stderr)
+
+
+def _rss_mib() -> float | None:
+    """Current process RSS in MiB, Linux /proc only (returns None elsewhere)."""
+    try:
+    	with open("/proc/self/status", "r", encoding="utf-8") as fh:
+    		for line in fh:
+    			if line.startswith("VmRSS:"):
+    				return int(line.split()[1]) / 1024.0
+    except (FileNotFoundError, OSError, ValueError):
+    	pass
+    return None
+
+
+def _log_rss(label: str, prev: float | None = None) -> float | None:
+    """Log RSS with an optional delta vs ``prev``. Returns current RSS.
+    Output is suppressed unless VERBOSE_LOGGING is True.
+    """
+    if not VERBOSE_LOGGING:
+        return _rss_mib()
+    cur = _rss_mib()
+    if cur is None:
+    	return None
+    if prev is not None:
+    	delta = cur - prev
+    	sign = "+" if delta >= 0 else ""
+    	_log(f"[MEM] {label}: rss={cur:.1f}MiB delta={sign}{delta:.1f}MiB")
+    else:
+    	_log(f"[MEM] {label}: rss={cur:.1f}MiB")
+    return cur
+
+
+def _release_memory() -> None:
+    """GC cycle + best-effort glibc malloc_trim to return free arenas to OS."""
+    gc.collect()
+    try:
+    	import ctypes
+    	libc = ctypes.CDLL("libc.so.6")
+    	if hasattr(libc, "malloc_trim"):
+    		libc.malloc_trim(0)
+    except BaseException:
+    	pass
 
 
 def _df_stats(df: pd.DataFrame) -> str:
@@ -98,6 +158,7 @@ def write_demo_temp_files(demos, temp_dir, chunk_size, combine_batch_size=COMBIN
         stage_context = ""
         try:
             parser = DemoParser(demoPath)
+            rss = _log_rss(f"parser init {demoPath}")
 
             stage = "parse_ticks"
             chunk_idx = 0
@@ -114,48 +175,194 @@ def write_demo_temp_files(demos, temp_dir, chunk_size, combine_batch_size=COMBIN
                 clean_steamID_cols(tick_data, "steamid")
 
                 chunk_path = os.path.join(temp_dir, f"{demo_tag}_ticks_{chunk_idx}.parquet")
-                _log(f"Writing tick chunk {chunk_idx} ({len(tick_data)} rows) for {demoPath}")
+                _vlog(f"Writing tick chunk {chunk_idx} ({len(tick_data)} rows) for {demoPath}")
                 tick_data.to_parquet(chunk_path, index=False, row_group_size=combine_batch_size)
                 temp_files.append(chunk_path)
                 chunk_idx += 1
 
             stage = "parse_grenades"
             _log("Parsing grenade data")
+            rss = _log_rss("before parse_grenades", rss)
             df = pd.DataFrame(parser.parse_grenades())
+            rss = _log_rss("after parse_grenades", rss)
             if not df.empty:
                 df["event_type"] = "grenade_data"
                 for col in c.TICK_COLS:
                     if col in df.columns:
                         df[col] += tick_offset
-                _log(f"Grenade dataframe stats for {demoPath}: {_df_stats(df)}")
+                _vlog(f"Grenade dataframe stats for {demoPath}: {_df_stats(df)}")
                 stage_context = f"event=grenade_data stats=({_df_stats(df)})"
                 temp_files.extend(
                     _write_event_temp_files(df, temp_dir, f"{demo_tag}_grenades", chunk_size, combine_batch_size)
                 )
+            del df
+            _release_memory()
+            rss = _log_rss("after grenade cleanup", rss)
 
             non_player_events = {"server_cvar"}
 
+            # ----------------------------------------------------------------
+            # Phase 1 – parse all events raw (no player/world props).
+            # Accumulate every unique tick seen across all events so we can
+            # do a single targeted parse_ticks call in phase 2.
+            # ----------------------------------------------------------------
+            raw_event_dfs: dict[str, pd.DataFrame] = {}
+            all_event_ticks: set[int] = set()
+
             for event in c.TRACKED_EVENTS:
-                stage = f"parse_event:{event}"
-                _log(f"Parsing event: {event} from {demoPath}")
-                if event in non_player_events:
-                    df = pd.DataFrame(parser.parse_event(event))
-                else:
-                    df = pd.DataFrame(parser.parse_event(event, player=c.DEFAULT_PLAYER_PROPS, other=c.DEFAULT_WORLD_PROPS))
+                stage = f"parse_event_raw:{event}"
+                _log(f"Parsing event (raw): {event} from {demoPath}")
+                rss = _log_rss(f"before parse_event_raw:{event}", rss)
+                df = pd.DataFrame(parser.parse_event(event))
+                rss = _log_rss(f"after parse_event_raw:{event}", rss)
 
                 if df.empty:
+                    del df
                     continue
 
                 df["event_type"] = event
                 for col in c.TICK_COLS:
                     if col in df.columns:
                         df[col] += tick_offset
+
+                if event not in non_player_events and "tick" in df.columns:
+                    all_event_ticks.update(df["tick"].dropna().astype(int).tolist())
+
+                raw_event_dfs[event] = df
+                del df
+
+            # ----------------------------------------------------------------
+            # Phase 2 – one targeted parse_ticks call for only the ticks
+            # where events occurred.
+            # • Player props (DEFAULT_PLAYER_PROPS): per-player per-tick rows,
+            #   joined per role (user_*, attacker_*, etc.) by (tick, steamid).
+            #   Cost: n_event_ticks × 10 players × props – typically ~64 MB,
+            #   not the full all_ticks timeline that caused OOM.
+            # • World props (DEFAULT_WORLD_PROPS + team-entity props): dedup'd
+            #   to 1 row per tick, joined 1:1 to event rows by tick.
+            #   ct_team_name / t_team_name are added here so that awpy's
+            #   fix_common_names can rename them to ct_side / t_side.
+            # ----------------------------------------------------------------
+            player_state_by_tick: pd.DataFrame | None = None
+            world_state_by_tick: pd.DataFrame | None = None
+            if all_event_ticks:
+                event_tick_list = sorted(all_event_ticks)
+                # Player state is joined at T-1 for most events and T for
+                # inferno events.  Fetch all needed ticks in one call.
+                player_tick_set = (
+                    set(event_tick_list)                          # T (for infernos + world state)
+                    | {max(0, t - 1) for t in event_tick_list}  # T-1 (for most events)
+                )
+                n_ticks = len(event_tick_list)
+                _vlog(f"Fetching player+world state for {n_ticks} unique event ticks (+ T-1 for player props)")
+                rss = _log_rss("before event-tick state parse", rss)
+                raw_state = pd.DataFrame(
+                    parser.parse_ticks(
+                        c.DEFAULT_PLAYER_PROPS + c.DEFAULT_WORLD_PROPS,
+                        ticks=sorted(player_tick_set),
+                    )
+                )
+                rss = _log_rss("after event-tick state parse", rss)
+                _vlog(f"Event-tick state frame: {_df_stats(raw_state)}")
+
+                if not raw_state.empty and "tick" in raw_state.columns:
+                    # Player-only subset for per-role enrichment.
+                    # Use the full DEFAULT_PLAYER_PROPS so event rows carry the
+                    # same player context as the old parse_event(player=...) approach
+                    # (armor_value, has_defuser, flash_duration, etc.). We already
+                    # fetched all these columns above so there is no extra parse cost.
+                    player_only_cols = (
+                        ["tick", "steamid"]
+                        + [col for col in c.DEFAULT_PLAYER_PROPS if col in raw_state.columns]
+                    )
+                    player_state_by_tick = raw_state[[col for col in player_only_cols if col in raw_state.columns]].copy()
+
+                    # World-only subset (1 row per tick).
+                    # Derive ct/t team name AND clan name so both the game-side
+                    # identifier (ct_team_name → ct_side) and the display clan name
+                    # (ct_team_clan_name) are present on all event rows, matching
+                    # the old parse_event(other=DEFAULT_WORLD_PROPS) output.
+                    world_prop_cols = [col for col in c.DEFAULT_WORLD_PROPS if col in raw_state.columns]
+                    world_base = (
+                        raw_state[["tick"] + world_prop_cols]
+                        .drop_duplicates(subset=["tick"])
+                        .reset_index(drop=True)
+                    )
+                    if "team_name" in raw_state.columns:
+                        ct_names = (
+                            raw_state[raw_state["team_name"] == "CT"][["tick", "team_name"]]
+                            .drop_duplicates(subset=["tick"])
+                            .rename(columns={"team_name": "ct_team_name"})
+                        )
+                        t_names = (
+                            raw_state[raw_state["team_name"] == "TERRORIST"][["tick", "team_name"]]
+                            .drop_duplicates(subset=["tick"])
+                            .rename(columns={"team_name": "t_team_name"})
+                        )
+                        world_base = world_base.merge(ct_names, on="tick", how="left")
+                        world_base = world_base.merge(t_names, on="tick", how="left")
+                    if "team_name" in raw_state.columns and "team_clan_name" in raw_state.columns:
+                        ct_clans = (
+                            raw_state[raw_state["team_name"] == "CT"][["tick", "team_clan_name"]]
+                            .dropna(subset=["team_clan_name"])
+                            .drop_duplicates(subset=["tick"])
+                            .rename(columns={"team_clan_name": "ct_team_clan_name"})
+                        )
+                        t_clans = (
+                            raw_state[raw_state["team_name"] == "TERRORIST"][["tick", "team_clan_name"]]
+                            .dropna(subset=["team_clan_name"])
+                            .drop_duplicates(subset=["tick"])
+                            .rename(columns={"team_clan_name": "t_team_clan_name"})
+                        )
+                        world_base = world_base.merge(ct_clans, on="tick", how="left")
+                        world_base = world_base.merge(t_clans, on="tick", how="left")
+                    world_state_by_tick = world_base
+                del raw_state
+                _release_memory()
+                rss = _log_rss("after event-tick state split", rss)
+
+            # ----------------------------------------------------------------
+            # Phase 3 – enrich and write each event:
+            #   a) join world state 1:1 by tick
+            #   b) join player state per role by (tick, *_steamid)
+            # ----------------------------------------------------------------
+            for event, df in raw_event_dfs.items():
+                stage = f"write_event:{event}"
+
+                if event not in non_player_events and "tick" in df.columns:
+                    if (
+                        world_state_by_tick is not None
+                        and not world_state_by_tick.empty
+                        and "tick" in world_state_by_tick.columns
+                    ):
+                        df = df.merge(
+                            world_state_by_tick,
+                            on="tick",
+                            how="left",
+                            suffixes=("", "_world"),
+                        )
+
+                    if player_state_by_tick is not None and not player_state_by_tick.empty:
+                        tick_offset_for_event = 0 if event in _EVENTS_USING_CURRENT_TICK else -1
+                        df = _enrich_event_with_player_state(df, player_state_by_tick, tick_offset=tick_offset_for_event)
+
                 event_stats = _df_stats(df)
-                _log(f"Event dataframe stats for {event} from {demoPath}: {event_stats}")
+                _vlog(f"Event dataframe stats for {event} from {demoPath}: {event_stats}")
                 stage_context = f"event={event} stats=({event_stats})"
                 temp_files.extend(
                     _write_event_temp_files(df, temp_dir, f"{demo_tag}_event_{event}", chunk_size, combine_batch_size)
                 )
+                del df
+                _release_memory()
+                rss = _log_rss(f"after event write+cleanup:{event}", rss)
+
+            del raw_event_dfs
+            if player_state_by_tick is not None:
+                del player_state_by_tick
+            if world_state_by_tick is not None:
+                del world_state_by_tick
+            _release_memory()
+            rss = _log_rss("after all events cleanup", rss)
 
             if demo_max_tick is not None:
                 tick_offset += demo_max_tick + 1
@@ -163,7 +370,7 @@ def write_demo_temp_files(demos, temp_dir, chunk_size, combine_batch_size=COMBIN
                 tick_offset += max_tick + 1
 
         except BaseException as ex:
-            if isinstance(ex, (KeyboardInterrupt, SystemExit)):
+            if isinstance(ex, (KeyboardInterrupt, SystemExit, MemoryError)):
                 raise
             _log(
                 f"Skipping demo {demoPath} at stage '{stage}' due to "
@@ -173,8 +380,76 @@ def write_demo_temp_files(demos, temp_dir, chunk_size, combine_batch_size=COMBIN
                 _log(f"Stage context: {stage_context}")
             _log(traceback.format_exc())
             continue
+        finally:
+            try:
+                del parser
+            except UnboundLocalError:
+                pass
+            _release_memory()
+            _log_rss(f"after demo finally cleanup {demoPath}")
 
     return temp_files
+
+
+def _enrich_event_with_player_state(
+    df: pd.DataFrame, player_state: pd.DataFrame, tick_offset: int = -1
+) -> pd.DataFrame:
+    """Add role-prefixed player state columns to an event DataFrame.
+
+    ``tick_offset`` controls which tick to sample player state from relative
+    to the event's own tick.  -1 (default) matches demoparser2's behaviour
+    for most events (state sampled at T-1, before the event fires).  0 is
+    used for entity-creation events (e.g. inferno_startburn) where the state
+    is sampled at the event tick itself.
+    """
+    if "steamid" not in player_state.columns or "tick" not in player_state.columns:
+        return df
+
+    # Align steamid dtypes: event *_steamid columns are strings (after
+    # clean_steamID_cols), but demoparser2 returns steamid as uint64.
+    # Cast the player_state steamid to string so the merge keys match.
+    ps_join = player_state.copy()
+    ps_join["steamid"] = ps_join["steamid"].astype(str)
+
+    # Columns in player_state that carry per-player values (not tick/steamid).
+    state_prop_cols = [
+        col for col in ps_join.columns if col not in ("tick", "steamid")
+    ]
+    if not state_prop_cols:
+        return df
+
+    # Role columns present in the event df (e.g. user_steamid, attacker_steamid).
+    role_steamid_cols = [col for col in df.columns if col.endswith("_steamid")]
+    if not role_steamid_cols:
+        return df
+
+    # Use tick + tick_offset for player state lookup.
+    df["_player_lookup_tick"] = (df["tick"] + tick_offset).clip(lower=0)
+
+    for role_col in role_steamid_cols:
+        role_prefix = role_col[: -len("steamid")]  # "user_steamid" -> "user_"
+
+        # Build a sub-frame: merge event rows with player state by (tick-1, role_steamid).
+        role_lookup = (
+            df[["_player_lookup_tick", role_col]]
+            .merge(
+                ps_join[["tick", "steamid"] + state_prop_cols],
+                left_on=["_player_lookup_tick", role_col],
+                right_on=["tick", "steamid"],
+                how="left",
+            )
+            [state_prop_cols]
+        )
+        role_lookup.index = df.index
+
+        for prop in state_prop_cols:
+            target_col = f"{role_prefix}{prop}"
+            # Skip if a column with this name already exists (e.g. native event field).
+            if target_col not in df.columns:
+                df[target_col] = role_lookup[prop].values
+
+    df.drop(columns=["_player_lookup_tick"], inplace=True)
+    return df
 
 
 def _write_event_temp_files(df, temp_dir, name, chunk_size, combine_batch_size=COMBINE_BATCH_SIZE):
@@ -194,7 +469,7 @@ def _write_event_temp_files(df, temp_dir, name, chunk_size, combine_batch_size=C
 
     step = max(1, chunk_size)
     total_pieces = (n + step - 1) // step
-    _log(
+    _vlog(
         f"Writing event temp files for {name}: rows={n} chunk_rows={step} "
         f"pieces={total_pieces} row_group_size={combine_batch_size}"
     )
@@ -202,12 +477,14 @@ def _write_event_temp_files(df, temp_dir, name, chunk_size, combine_batch_size=C
         piece = df.iloc[start:start + step]
         end = start + len(piece) - 1
         path = os.path.join(temp_dir, f"{name}_{piece_idx}.parquet")
-        _log(
+        _vlog(
             f"  piece {piece_idx + 1}/{total_pieces} rows={len(piece)} "
             f"range=[{start}:{end}] stats=({_df_stats(piece)}) -> {path}"
         )
         piece.to_parquet(path, index=False, row_group_size=combine_batch_size)
         paths.append(path)
+        del piece
+        _release_memory()
     return paths
 
 
