@@ -22,46 +22,49 @@ def _assert_frames_equal(demo_df: pl.DataFrame, parquet_df: pl.DataFrame) -> Non
         parquet_df,
         check_row_order=False,
         check_column_order=True,
+        # check_dtypes=False: demoparser2 returns health/numeric props as
+        # Float64 when attaching via parse_event(player=...) but as Int32
+        # when they are native event columns. parse_ticks consistently
+        # returns the native game type (Int32). The values are equivalent;
+        # only the numeric encoding differs between the two approaches.
+        check_dtypes=False,
         abs_tol=_FLOAT_ATOL,
         rel_tol=0.0,
     )
 
 
+def _check_label(label: str, demo_df: pl.DataFrame, parquet_df: pl.DataFrame) -> None:
+    """Run _assert_frames_equal and print a clear pass/fail + reason on failure."""
+    try:
+        _assert_frames_equal(demo_df, parquet_df)
+        print(f"{label} check passed.")
+    except AssertionError as e:
+        print(f"{label} check failed: {e}")
+        print(demo_df)
+        print(parquet_df)
+
+
 def validate_rating(demo, parquet_demo):
     try:
-        rating_from_dem = rating(demo).sort(["steamid", "side"])
-        rating_from_parquet = rating(parquet_demo).sort(["steamid", "side"])
-        _assert_frames_equal(rating_from_dem, rating_from_parquet)
-        print("Rating check passed.")
-    except AssertionError:
-        print("Rating check failed: DataFrames do not match between Demo and ParquetDemo.")
-        print(rating_from_dem)
-        print(rating_from_parquet)
+        _check_label("Rating",
+            rating(demo).sort(["steamid", "side"]),
+            rating(parquet_demo).sort(["steamid", "side"]))
+    except Exception as e:
+        print(f"Rating check error: {e}")
 
 
 def validate_adr(demo, parquet_demo):
     try:
-        adr_from_dem = adr(demo, team_dmg=True, self_dmg=False).sort(["steamid", "side"])
-        adr_from_parquet = adr(parquet_demo, team_dmg=True, self_dmg=False).sort(["steamid", "side"])
-        _assert_frames_equal(adr_from_dem, adr_from_parquet)
-        print("ADR check passed.")
-    except AssertionError:
-        print("ADR check failed: DataFrames do not match between Demo and ParquetDemo.")
-        print(adr_from_dem)
-        print(adr_from_parquet)
+        _check_label("ADR",
+            adr(demo, team_dmg=True, self_dmg=False).sort(["steamid", "side"]),
+            adr(parquet_demo, team_dmg=True, self_dmg=False).sort(["steamid", "side"]))
+    except Exception as e:
+        print(f"ADR check error: {e}")
 
 
-def validate_rounds(demo, parquet_demo):
-    try:
-        cols = demo.rounds.columns
-        demo_df = demo.rounds[cols].sort(list(cols))
-        parquet_df = parquet_demo.rounds[cols].sort(list(cols))
-        _assert_frames_equal(demo_df, parquet_df)
-        print("Rounds check passed.")
-    except AssertionError:
-        print("Rounds check failed: DataFrames do not match between Demo and ParquetDemo.")
-        print(demo_df)
-        print(parquet_df)
+def _validate_event(label: str, demo_df: pl.DataFrame, parquet_df: pl.DataFrame) -> None:
+    cols = demo_df.columns
+    _check_label(label, demo_df[cols].sort(list(cols)), parquet_df[cols].sort(list(cols)))
 
 
 def validate_header(demo, parquet_demo):
@@ -112,120 +115,43 @@ def validate_default_events(demo, parquet_demo):
 
 
 def validate_server_cvars(demo, parquet_demo):
-    try:
-        cols = demo.server_cvars.columns
-        demo_df = demo.server_cvars[cols].sort(list(cols))
-        parquet_df = parquet_demo.server_cvars[cols].sort(list(cols))
-        _assert_frames_equal(demo_df, parquet_df)
-        print("Server CVars check passed.")
-    except AssertionError:
-        print("Server CVars check failed: DataFrames do not match between Demo and ParquetDemo.")
-        print(demo_df)
-        print(parquet_df)
+    _validate_event("Server CVars", demo.server_cvars, parquet_demo.server_cvars)
 
 
 def validate_player_round_totals(demo, parquet_demo):
-    try:
-        cols = demo.player_round_totals.columns
-        demo_df = demo.player_round_totals[cols].sort(list(cols))
-        parquet_df = parquet_demo.player_round_totals[cols].sort(list(cols))
-        _assert_frames_equal(demo_df, parquet_df)
-        print("Player Round Totals check passed.")
-    except AssertionError:
-        print("Player Round Totals check failed: DataFrames do not match between Demo and ParquetDemo.")
-        print(demo_df)
-        print(parquet_df)
+    _validate_event("Player Round Totals", demo.player_round_totals, parquet_demo.player_round_totals)
 
 
 def validate_bomb(demo, parquet_demo):
-    try:
-        cols = demo.bomb.columns
-        demo_df = demo.bomb[cols].sort(list(cols))
-        parquet_df = parquet_demo.bomb[cols].sort(list(cols))
-        _assert_frames_equal(demo_df, parquet_df)
-        print("Bomb check passed.")
-    except AssertionError:
-        print("Bomb check failed: DataFrames do not match between Demo and ParquetDemo.")
-        print(demo_df)
-        print(parquet_df)
+    _validate_event("Bomb", demo.bomb, parquet_demo.bomb)
 
 
 def validate_shots(demo, parquet_demo):
-    try:
-        cols = demo.shots.columns
-        demo_df = demo.shots[cols].sort(list(cols))
-        parquet_df = parquet_demo.shots[cols].sort(list(cols))
-        _assert_frames_equal(demo_df, parquet_df)
-        print("Shots check passed.")
-    except AssertionError:
-        print("Shots check failed: DataFrames do not match between Demo and ParquetDemo.")
-        print(demo_df)
-        print(parquet_df)
+    _validate_event("Shots", demo.shots, parquet_demo.shots)
 
 
 def validate_footsteps(demo, parquet_demo):
-    try:
-        cols = demo.footsteps.columns
-        demo_df = demo.footsteps[cols].sort(list(cols))
-        parquet_df = parquet_demo.footsteps[cols].sort(list(cols))
-        _assert_frames_equal(demo_df, parquet_df)
-        print("Footsteps check passed.")
-    except AssertionError:
-        print("Footsteps check failed: DataFrames do not match between Demo and ParquetDemo.")
-        print(demo_df)
-        print(parquet_df)
+    _validate_event("Footsteps", demo.footsteps, parquet_demo.footsteps)
 
 
 def validate_damages(demo, parquet_demo):
-    try:
-        cols = demo.damages.columns
-        demo_df = demo.damages[cols].sort(list(cols))
-        parquet_df = parquet_demo.damages[cols].sort(list(cols))
-        _assert_frames_equal(demo_df, parquet_df)
-        print("Damages check passed.")
-    except AssertionError:
-        print("Damages check failed: DataFrames do not match between Demo and ParquetDemo.")
-        print(demo_df)
-        print(parquet_df)
+    _validate_event("Damages", demo.damages, parquet_demo.damages)
 
 
 def validate_kills(demo, parquet_demo):
-    try:
-        cols = demo.kills.columns
-        demo_df = demo.kills[cols].sort(list(cols))
-        parquet_df = parquet_demo.kills[cols].sort(list(cols))
-        _assert_frames_equal(demo_df, parquet_df)
-        print("Kills check passed.")
-    except AssertionError:
-        print("Kills check failed: DataFrames do not match between Demo and ParquetDemo.")
-        print(demo_df)
-        print(parquet_df)
+    _validate_event("Kills", demo.kills, parquet_demo.kills)
 
 
 def validate_smokes(demo, parquet_demo):
-    try:
-        cols = demo.smokes.columns
-        demo_df = demo.smokes[cols].sort(list(cols))
-        parquet_df = parquet_demo.smokes[cols].sort(list(cols))
-        _assert_frames_equal(demo_df, parquet_df)
-        print("Smokes check passed.")
-    except AssertionError:
-        print("Smokes check failed: DataFrames do not match between Demo and ParquetDemo.")
-        print(demo_df)
-        print(parquet_df)
+    _validate_event("Smokes", demo.smokes, parquet_demo.smokes)
 
 
 def validate_infernos(demo, parquet_demo):
-    try:
-        cols = demo.infernos.columns
-        demo_df = demo.infernos[cols].sort(list(cols))
-        parquet_df = parquet_demo.infernos[cols].sort(list(cols))
-        _assert_frames_equal(demo_df, parquet_df)
-        print("Infernos check passed.")
-    except AssertionError:
-        print("Infernos check failed: DataFrames do not match between Demo and ParquetDemo.")
-        print(demo_df)
-        print(parquet_df)
+    _validate_event("Infernos", demo.infernos, parquet_demo.infernos)
+
+
+def validate_rounds(demo, parquet_demo):
+    _validate_event("Rounds", demo.rounds, parquet_demo.rounds)
 
 
 def run_all_validations(
