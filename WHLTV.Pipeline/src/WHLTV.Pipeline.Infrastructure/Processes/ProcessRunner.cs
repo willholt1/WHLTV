@@ -22,15 +22,19 @@ public sealed class ProcessRunner
 
         process.Start();
 
-        string stdout = await process.StandardOutput.ReadToEndAsync(cancellationToken);
-        string stderr = await process.StandardError.ReadToEndAsync(cancellationToken);
+        // Read both pipes concurrently to prevent deadlock: if only one pipe is
+        // drained at a time and the other fills its OS buffer (~64 KB), the child
+        // process blocks on pipe_write at 0% CPU until the reader catches up.
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
 
+        await Task.WhenAll(stdoutTask, stderrTask);
         await process.WaitForExitAsync(cancellationToken);
 
         return new ProcessResult(
             process.ExitCode,
-            stdout,
-            stderr
+            stdoutTask.Result,
+            stderrTask.Result
         );
     }
 }
