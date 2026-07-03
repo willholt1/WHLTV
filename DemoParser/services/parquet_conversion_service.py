@@ -54,11 +54,11 @@ def _rss_mib() -> float | None:
     """Current process RSS in MiB, Linux /proc only (returns None elsewhere)."""
     try:
     	with open("/proc/self/status", "r", encoding="utf-8") as fh:
-    		for line in fh:
-    			if line.startswith("VmRSS:"):
-    				return int(line.split()[1]) / 1024.0
+            for line in fh:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024.0
     except (FileNotFoundError, OSError, ValueError):
-    	pass
+        pass
     return None
 
 
@@ -70,13 +70,13 @@ def _log_rss(label: str, prev: float | None = None) -> float | None:
         return _rss_mib()
     cur = _rss_mib()
     if cur is None:
-    	return None
+        return None
     if prev is not None:
-    	delta = cur - prev
-    	sign = "+" if delta >= 0 else ""
-    	_log(f"[MEM] {label}: rss={cur:.1f}MiB delta={sign}{delta:.1f}MiB")
+        delta = cur - prev
+        sign = "+" if delta >= 0 else ""
+        _log(f"[MEM] {label}: rss={cur:.1f}MiB delta={sign}{delta:.1f}MiB")
     else:
-    	_log(f"[MEM] {label}: rss={cur:.1f}MiB")
+        _log(f"[MEM] {label}: rss={cur:.1f}MiB")
     return cur
 
 
@@ -84,10 +84,10 @@ def _release_memory() -> None:
     """GC cycle + best-effort glibc malloc_trim to return free arenas to OS."""
     gc.collect()
     try:
-    	import ctypes
-    	libc = ctypes.CDLL("libc.so.6")
-    	if hasattr(libc, "malloc_trim"):
-    		libc.malloc_trim(0)
+        import ctypes
+        libc = ctypes.CDLL("libc.so.6")
+        if hasattr(libc, "malloc_trim"):
+            libc.malloc_trim(0)
     except BaseException:
     	pass
 
@@ -135,6 +135,10 @@ def demoToParquet(demoPaths, output_dir="ParquetFiles", chunk_size=DEFAULT_CHUNK
             combine_temp_files(temp_files, parquet_path, batch_size=combine_batch_size)
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
+            # Release memory between map groups so native allocations from
+            # one map don't persist into the next.
+            _release_memory()
+            _log_rss(f"after {map_name} cleanup")
 
         created_files[enums.de_map_from_str(map_name)] = [parquet_path, map_data["patch_version"]]
     return created_files
