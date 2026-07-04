@@ -77,9 +77,33 @@ public sealed class ExtractWorker : BackgroundService
                 );
 
 
-                string archiveFullPath = _pathResolver.GetImportPath(job.ArchiveRelativePath);
+                string archivePath = _pathResolver.GetImportPath(job.ArchiveRelativePath);
                 string extractFullPath = _pathResolver.GetWorkPath($"extracted/job-{job.DemoDownloadJobID}");
 
+                // ArchiveRelativePath may point to a directory containing the downloaded archive(s).
+                if (Directory.Exists(archivePath))
+                {
+                    var archiveFiles = Directory
+                        .EnumerateFiles(archivePath, "*", SearchOption.TopDirectoryOnly)
+                        .Where(f =>
+                        {
+                            var ext = Path.GetExtension(f);
+                            return ext.Equals(".rar", StringComparison.OrdinalIgnoreCase)
+                                || ext.Equals(".zip", StringComparison.OrdinalIgnoreCase)
+                                || ext.Equals(".7z", StringComparison.OrdinalIgnoreCase);
+                        })
+                        .ToList();
+
+                    if (archiveFiles.Count == 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"No archive file found in directory {archivePath} for job {job.DemoDownloadJobID}.");
+                    }
+
+                    archivePath = archiveFiles[0];
+                }
+
+                string archiveFullPath = archivePath;
                 Directory.CreateDirectory(extractFullPath);
 
                 IReadOnlyList<string> extractedDemoFullPaths = await _archiveExtractor.ExtractRarAsync(

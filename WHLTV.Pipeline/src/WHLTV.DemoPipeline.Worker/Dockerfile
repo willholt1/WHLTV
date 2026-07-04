@@ -14,7 +14,7 @@ FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends p7zip-full libgssapi-krb5-2 python3 python3-pip python3-venv \
+    && apt-get install -y --no-install-recommends unrar 7zip libgssapi-krb5-2 python3 python3-pip python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/pyenv \

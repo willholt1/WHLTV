@@ -16,13 +16,29 @@ public sealed class ArchiveExtractor
         string outputDirectory,
         CancellationToken cancellationToken)
     {
+        if (Directory.Exists(outputDirectory))
+        {
+            Directory.Delete(outputDirectory, recursive: true);
+        }
         Directory.CreateDirectory(outputDirectory);
 
-        var result = await _processRunner.RunAsync(
-            "7z",
-            $"x \"{archiveFullPath}\" -o\"{outputDirectory}\" -y",
-            cancellationToken
-        );
+        var ext = Path.GetExtension(archiveFullPath);
+        string fileName;
+        string arguments;
+
+        if (ext.Equals(".rar", StringComparison.OrdinalIgnoreCase))
+        {
+            fileName = "unrar";
+            // unrar x -y <archive> <destination/> — trailing slash required
+            arguments = $"x -y \"{archiveFullPath}\" \"{outputDirectory}/\"";
+        }
+        else
+        {
+            fileName = "7z";
+            arguments = $"x \"{archiveFullPath}\" -o\"{outputDirectory}\" -y";
+        }
+
+        var result = await _processRunner.RunAsync(fileName, arguments, cancellationToken);
 
         var extractedDemos = Directory
             .EnumerateFiles(outputDirectory, "*.dem", SearchOption.AllDirectories)
