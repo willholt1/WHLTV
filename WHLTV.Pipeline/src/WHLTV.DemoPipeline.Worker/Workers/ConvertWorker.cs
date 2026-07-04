@@ -1,6 +1,7 @@
 using System.Text.Json;
 using WHLTV.Pipeline.DataAccess.Repositories;
 using WHLTV.Pipeline.Domain.Enums;
+using WHLTV.Pipeline.Domain.Records;
 using WHLTV.Pipeline.Infrastructure.Storage;
 using WHLTV.Pipeline.Infrastructure.Processes;
 
@@ -126,5 +127,3 @@ public sealed class ConvertWorker : BackgroundService
 
     }
 }
-
-file sealed record ParquetFileResult(string MapName, string ParquetPath, string PatchVersion);
