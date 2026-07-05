@@ -2,9 +2,9 @@
 -- PostgreSQL database dump
 --
 
-\restrict ZG80D4TWDsL9EZuyoknZFybJnhz2jmvhxL5YsZ3aOmW2ebCy3RFORpsO0MVVi9v
+\restrict cZL4SB4bD2i4geAzQhTxIwqJmF49O6xiDFFnRCNtYlEhfbMbtmdDrQCVqEFvYwd
 
--- Dumped from database version 16.13 (Debian 16.13-1.pgdg13+1)
+-- Dumped from database version 16.14 (Debian 16.14-1.pgdg13+1)
 -- Dumped by pg_dump version 18.3 (Homebrew)
 
 SET statement_timeout = 0;
@@ -827,6 +827,7 @@ CREATE TABLE dbo.tbldemoparquetfiles (
     demoparquetfileid integer NOT NULL,
     democonversionjobid integer NOT NULL,
     matchmapid integer,
+    patchversion text,
     parquettemprelativepath text,
     parquetfinalrelativepath text,
     status dbo.parquet_file_status DEFAULT 'Created'::dbo.parquet_file_status NOT NULL,
@@ -1699,5 +1700,5 @@ ALTER TABLE ONLY dbo.tblevents
 -- PostgreSQL database dump complete
 --
 
-\unrestrict ZG80D4TWDsL9EZuyoknZFybJnhz2jmvhxL5YsZ3aOmW2ebCy3RFORpsO0MVVi9v
+\unrestrict cZL4SB4bD2i4geAzQhTxIwqJmF49O6xiDFFnRCNtYlEhfbMbtmdDrQCVqEFvYwd
 
