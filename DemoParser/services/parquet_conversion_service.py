@@ -140,7 +140,9 @@ def demoToParquet(demoPaths, output_dir="ParquetFiles", chunk_size=DEFAULT_CHUNK
             _release_memory()
             _log_rss(f"after {map_name} cleanup")
 
-        created_files[enums.de_map_from_str(map_name)] = [parquet_path, map_data["patch_version"]]
+        if enums.de_map_from_str(map_name) is None:
+            raise RuntimeError(f"Unknown map name '{map_name}' — cannot map to a known Map enum.")
+        created_files[map_name] = [parquet_path, map_data["patch_version"]]
     return created_files
 
 
