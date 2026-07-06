@@ -10,6 +10,7 @@ namespace WHLTV.DemoPipeline.Worker.Workers;
 public sealed class ConvertWorker : BackgroundService
 {
     private readonly DemoConversionJobRepository _jobs;
+    private readonly DemoParquetFileRepository _parquetFiles;
     private readonly PathResolver _pathResolver;
     private readonly ProcessRunner _processRunner;
     private readonly DemoPipelineLogsRepository _dbLogger;
@@ -18,6 +19,7 @@ public sealed class ConvertWorker : BackgroundService
 
     public ConvertWorker(
         DemoConversionJobRepository jobs,
+        DemoParquetFileRepository parquetFiles,
         PathResolver pathResolver,
         ProcessRunner processRunner,
         DemoPipelineLogsRepository dbLogger,
@@ -26,6 +28,7 @@ public sealed class ConvertWorker : BackgroundService
     )
     {
         _jobs = jobs;
+        _parquetFiles = parquetFiles;
         _pathResolver = pathResolver;
         _processRunner = processRunner;
         _dbLogger = dbLogger;
@@ -102,9 +105,31 @@ public sealed class ConvertWorker : BackgroundService
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
                     ?? throw new InvalidOperationException("Failed to deserialize RESULT_JSON.");
 
-                // TODO:
-                // create parquet file repo
-                // create tblDemoParquetFiles records for each entry in parquetFiles
+
+                foreach (var parquetFile in parquetFiles)
+                {
+                    _logger.LogInformation("mapName: {MapName}, patchVersion: {PatchVersion}, parquetPath: {ParquetPath}",
+                                           parquetFile.MapName,
+                                           parquetFile.PatchVersion,
+                                           parquetFile.ParquetPath);
+                }
+
+                foreach (var parquetFile in parquetFiles)
+                {
+                    if (!Enum.TryParse<Map>(parquetFile.MapName, ignoreCase: true, out var mapEnum))
+                    {
+                        throw new InvalidOperationException(
+                            $"Invalid map name '{parquetFile.MapName}' returned from convertToParquet."
+                        );
+                    }
+                    var relativeParquetPath = Path.GetRelativePath(_pathResolver.ParquetRoot, parquetFile.ParquetPath);
+                    await _parquetFiles.CreateDemoParquetFile(
+                        job.DemoConversionJobID,
+                        mapEnum,
+                        parquetFile.PatchVersion,
+                        relativeParquetPath
+                    );
+                }
 
                 await _jobs.MarkReadyToValidate(job.DemoConversionJobID);
                 _logger.LogInformation(

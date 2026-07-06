@@ -21,6 +21,8 @@ public sealed class PathResolver
         return Path.Combine(_options.WorkRoot, relativePath);
     }
 
+    public string ParquetRoot => _options.ParquetRoot;
+
     public string GetParquetPath(string relativePath)
     {
         return Path.Combine(_options.ParquetRoot, relativePath);
