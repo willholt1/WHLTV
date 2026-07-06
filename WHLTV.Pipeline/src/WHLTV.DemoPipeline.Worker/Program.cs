@@ -24,6 +24,8 @@ var connectionString =
 builder.Services.AddSingleton(new DbConnectionFactory(connectionString));
 builder.Services.AddSingleton<DemoDownloadJobRepository>();
 builder.Services.AddSingleton<DemoConversionJobRepository>();
+builder.Services.AddSingleton<DemoParquetFileRepository>();
+
 builder.Services.AddSingleton<DemoPipelineLogsRepository>();
 builder.Services.AddSingleton<AppConfigRepository>();
 
