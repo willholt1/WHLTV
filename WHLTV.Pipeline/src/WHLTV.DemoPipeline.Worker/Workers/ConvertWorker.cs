@@ -61,7 +61,7 @@ public sealed class ConvertWorker : BackgroundService
                 "Claimed convert job {JobID}",
                 job.DemoConversionJobID
             );
-            var logID = await _dbLogger.LogStatusStart(PipelineEntityType.DemoConversionJob
+            var logId = await _dbLogger.LogStatusStart(PipelineEntityType.DemoConversionJob
                                                  , job.DemoConversionJobID
                                                  , DemoConversionStatus.Converting.ToString()
                                                  , PipelineStageStatus.Started);
@@ -96,7 +96,7 @@ public sealed class ConvertWorker : BackgroundService
                         job.DemoConversionJobID,
                         errorMessage
                     );
-                    await _dbLogger.LogStatusEnd(logID, exitCode: result.ExitCode, errorMessage: errorMessage);
+                    await _dbLogger.LogStatusEnd(logId, exitCode: result.ExitCode, errorMessage: errorMessage);
                     continue;
                 }
 
@@ -137,15 +137,14 @@ public sealed class ConvertWorker : BackgroundService
                     job.DemoConversionJobID
                 );
 
-                await _dbLogger.LogStatusEnd(logID, exitCode: 0);
+                await _dbLogger.LogStatusEnd(logId, exitCode: 0);
 
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error converting demo for job {JobID}", job.DemoConversionJobID);
-                await _dbLogger.LogStatusEnd(logID, exitCode: 1, errorMessage: ex.Message);
+                await _dbLogger.LogStatusEnd(logId, exitCode: 1, errorMessage: ex.Message);
                 await _jobs.MarkFailed(job.DemoConversionJobID, ex.Message);
-                continue;
             }
 
         }

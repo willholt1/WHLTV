@@ -57,7 +57,7 @@ public sealed class ExtractWorker : BackgroundService
                 job.DemoDownloadJobID,
                 job.MatchID
             );
-            var logID = await _dbLogger.LogStatusStart(PipelineEntityType.DemoDownloadJob
+            var logId = await _dbLogger.LogStatusStart(PipelineEntityType.DemoDownloadJob
                                                  , job.DemoDownloadJobID
                                                  , DemoDownloadStatus.Extracting.ToString()
                                                  , PipelineStageStatus.Started);
@@ -127,15 +127,14 @@ public sealed class ExtractWorker : BackgroundService
                     "Marked job {JobID} as Extracted",
                     job.DemoDownloadJobID
                 );
-                await _dbLogger.LogStatusEnd(logID, exitCode: 0);
+                await _dbLogger.LogStatusEnd(logId, exitCode: 0);
 
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error extracting demo for job {JobID}", job.DemoDownloadJobID);
-                await _dbLogger.LogStatusEnd(logID, exitCode: 1, errorMessage: ex.Message);
+                await _dbLogger.LogStatusEnd(logId, exitCode: 1, errorMessage: ex.Message);
                 await _jobs.MarkFailed(job.DemoDownloadJobID, ex.Message);
-                continue;
             }
 
         }
