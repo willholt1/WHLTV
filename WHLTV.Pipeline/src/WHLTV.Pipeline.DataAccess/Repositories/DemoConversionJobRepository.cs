@@ -45,11 +45,12 @@ public sealed class DemoConversionJobRepository
         return await connection.QuerySingleOrDefaultAsync<DemoConversionJob>(sql);
     }
 
-    public async Task MarkReadyToValidate(int demoConversionJobId)
+    public async Task MarkReadyToValidate(int demoConversionJobId, string parquetTempFolderRelativePath)
     {
         const string sql = """
             UPDATE dbo.tbldemoconversionjobs
             SET status = 'ReadyToValidate',
+                parquettempfolderrelativepath = @ParquetTempFolderRelativePath,
                 updatedat = now()
             WHERE democonversionjobid = @DemoConversionJobID;
             """;
@@ -58,7 +59,8 @@ public sealed class DemoConversionJobRepository
 
         await connection.ExecuteAsync(sql, new
         {
-            DemoConversionJobID = demoConversionJobId
+            DemoConversionJobID = demoConversionJobId,
+            ParquetTempFolderRelativePath = parquetTempFolderRelativePath
         });
     }
 

@@ -80,6 +80,7 @@ public sealed class ConvertWorker : BackgroundService
                                         job.DemoConversionJobID);
 
                 string parquetOutputFolderFullPath = _pathResolver.GetParquetPath($"job-{job.DemoConversionJobID}");
+                string parquetFolderRelativePath = Path.GetRelativePath(_pathResolver.ParquetRoot, parquetOutputFolderFullPath);
                 Directory.CreateDirectory(parquetOutputFolderFullPath);
 
                 var result = await _processRunner.RunAsync("python3",
@@ -131,7 +132,7 @@ public sealed class ConvertWorker : BackgroundService
                     );
                 }
 
-                await _jobs.MarkReadyToValidate(job.DemoConversionJobID);
+                await _jobs.MarkReadyToValidate(job.DemoConversionJobID, parquetFolderRelativePath);
                 _logger.LogInformation(
                     "Marked job {JobID} as Ready to Validate",
                     job.DemoConversionJobID
